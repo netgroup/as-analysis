@@ -1,0 +1,42 @@
+{
+    "11814": {
+        "tot_nodes_count": 3587,
+        "NA_nodes_count": 3582,
+        "SA_nodes_count": 2,
+        "EU_nodes_count": 1,
+        "AF_nodes_count": 1,
+        "AS_nodes_count": 0,
+        "OC_nodes_count": 1,
+        "AN_nodes_count": 0
+    },
+    "31655": {
+        "tot_nodes_count": 12673,
+        "NA_nodes_count": 0,
+        "SA_nodes_count": 0,
+        "EU_nodes_count": 12671,
+        "AF_nodes_count": 0,
+        "AS_nodes_count": 0,
+        "OC_nodes_count": 0,
+        "AN_nodes_count": 0
+    },
+    "8732": {
+        "tot_nodes_count": 2578,
+        "NA_nodes_count": 5,
+        "SA_nodes_count": 0,
+        "EU_nodes_count": 2568,
+        "AF_nodes_count": 0,
+        "AS_nodes_count": 4,
+        "OC_nodes_count": 0,
+        "AN_nodes_count": 0
+    },
+    "22423": {
+        "tot_nodes_count": 2821,
+        "NA_nodes_count": 2821,
+        "SA_nodes_count": 0,
+        "EU_nodes_count": 0,
+        "AF_nodes_count": 0,
+        "AS_nodes_count": 0,
+        "OC_nodes_count": 0,
+        "AN_nodes_count": 0
+    }
+}
