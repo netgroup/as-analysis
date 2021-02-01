@@ -496,6 +496,14 @@ def graph_statistics(G, no_output=False):
 
     if no_output:
         return
+    
+    # more graph stats
+    density = nx.density(G)
+    assortativity = nx.degree_pearson_correlation_coefficient(G)    # faster assortativity algorithm
+    transitivity = nx.transitivity(G)   # global clustering coeff
+    avg_shortest_path_len = nx.average_shortest_path_length(G)
+    # max_degree = max([d for n, d in G.degree()])
+
 
 
     ############################
@@ -687,6 +695,13 @@ def graph_statistics(G, no_output=False):
 
     add_to_tsv('sw_ifs_dis', sw_ifs_distribution.to_json(),
                'Distribution of interfaces for switches')
+    
+    ############################
+
+    add_to_tsv('density', density, 'Graph density')
+    add_to_tsv('assortativity', assortativity, 'Graph assortativity')
+    add_to_tsv('transitivity', transitivity, 'Graph transitivity, or global clustering coefficient')
+    add_to_tsv('avg_shortest_path_len', avg_shortest_path_len, 'Graph average shortest path length')
 
     # print (column_names)
     # print (data_tsv)
