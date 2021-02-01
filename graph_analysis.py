@@ -498,10 +498,18 @@ def graph_statistics(G, no_output=False):
         return
     
     # more graph stats
+    largest_cc = max(nx.connected_components(G), key=len)
+    G_lcc = G.subgraph(largest_cc)
+
     density = nx.density(G)
     assortativity = nx.degree_pearson_correlation_coefficient(G)    # faster assortativity algorithm
     transitivity = nx.transitivity(G)   # global clustering coeff
-    avg_shortest_path_len = nx.average_shortest_path_length(G)
+
+    # largest connected component
+    density_lcc = nx.density(G_lcc)
+    assortativity_lcc = nx.degree_pearson_correlation_coefficient(G_lcc)
+    transitivity_lcc = nx.transitivity(G_lcc)
+    avg_shortest_path_len = nx.average_shortest_path_length(G_lcc)
     # max_degree = max([d for n, d in G.degree()])
 
 
@@ -701,6 +709,9 @@ def graph_statistics(G, no_output=False):
     add_to_tsv('density', density, 'Graph density')
     add_to_tsv('assortativity', assortativity, 'Graph assortativity')
     add_to_tsv('transitivity', transitivity, 'Graph transitivity, or global clustering coefficient')
+    add_to_tsv('density_lcc', density_lcc, 'Graph density of largest connected component')
+    add_to_tsv('assortativity_lcc', assortativity_lcc, 'Graph assortativity of largest connected component')
+    add_to_tsv('transitivity_lcc', transitivity_lcc, 'Graph transitivity, or global clustering coefficient of largest connected component')
     add_to_tsv('avg_shortest_path_len', avg_shortest_path_len, 'Graph average shortest path length')
 
     # print (column_names)
