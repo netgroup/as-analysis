@@ -722,7 +722,7 @@ def graph_statistics(G, no_output=False):
 
 
 def batch_create_graph_from_file_and_analyze(as_number_list, output_tsv_filename, file_col_names, file_col_desc,
-                                             input_dir, links_type, eval_conn_comp=True, Directed=False):
+                                             input_dir, links_type, output_dir, eval_conn_comp=True, Directed=False):
     """
     create the networkx graph, analyze it, write TSV and readable text
     output_tsv_filename is the name of the TSV output file 
@@ -738,7 +738,8 @@ def batch_create_graph_from_file_and_analyze(as_number_list, output_tsv_filename
     if eval_conn_comp is true (default), the attribute 
     G.graph['largest_cc_size'] is added to G
     """
-    with open(output_tsv_filename, 'a', encoding="utf8") as out_file:
+    output_tsv_filepath = os.path.join(output_dir,output_tsv_filename)
+    with open(output_tsv_filepath, 'a', encoding="utf8") as out_file:
         for as_number in as_number_list:
             if Directed:
                 G = nx.DiGraph()
@@ -764,7 +765,7 @@ def run_all(input_dir, output_dir, stats_dir, min_size, single_as, links_type):
     else:
         as_list = [single_as]
     
-    batch_create_graph_from_file_and_analyze(as_list, "analysis.tsv", "c_names.json", "c_desc.json", input_dir, links_type)
+    batch_create_graph_from_file_and_analyze(as_list, "analysis.tsv", "c_names.json", "c_desc.json", input_dir, links_type, output_dir)
 
 if __name__ == "__main__":
     input_dir, output_dir, stats_dir, min_size, single_as, links_type = parse()
