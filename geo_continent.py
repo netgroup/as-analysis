@@ -91,5 +91,5 @@ print("matches: "+str(matches))
 print("geo > as: "+str(geo_mag_as))
 
 json_data = json.dumps(as_geo)
-with open('stats/geo_data.json', 'w', encoding='utf8') as out_file:
+with open('stats/geo_continent_data.json', 'w', encoding='utf8') as out_file:
     out_file.write(json_data)
