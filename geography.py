@@ -1,8 +1,9 @@
 import os
 import json
-INPUT_AS_FILE = 'midar-iff.nodes.as'
-INPUT_GEO_FILE = 'midar-iff.nodes.geo_sorted'
-INPUT_DIR = 'itdk_2020_08/'
+import csv
+INPUT_AS_FILE = 'nodes_as.csv'
+INPUT_GEO_FILE = 'nodes_geo.csv'
+INPUT_DIR = 'itdk_2020_08_clean/'
 
 as_geo = dict()
 file_path_as = os.path.join(INPUT_DIR, INPUT_AS_FILE)
@@ -12,20 +13,8 @@ geo_lost = 0
 matches = 0
 geo_mag_as = 0
 
-def parse_geo(geo_line):
-    geo_tokens = geo_line.split("\t")
-    if geo_tokens[0][0] == '#':
-        geo_node = '-1'
-        continent = None
-    else:
-        geo_node = geo_tokens[0].split()[1].strip(':')
-        continent = geo_tokens[1]
-    return geo_node, continent
-
 def parse_as(as_line):
-    as_tokens = as_line.split()
-    as_number = as_tokens[2]
-    as_node = as_tokens[1].strip(':')
+    as_node, as_number = as_line
     if as_number in as_geo:
         as_geo[as_number]["tot_nodes_count"] = as_geo[as_number]["tot_nodes_count"] + 1
     else:
@@ -43,34 +32,39 @@ def parse_as(as_line):
 
 with open(file_path_as, 'r', encoding="utf8") as as_file:
     with open(file_path_geo, 'r', encoding="utf8") as geo_file:
+        reader_as = csv.reader(as_file)
+        reader_geo = csv.reader(geo_file)
+        # skip headers
+        next(reader_as, None)
+        next(reader_geo, None)
         # read first lines
         # read geo
-        geo_line = geo_file.readline()
-        geo_node, continent = parse_geo(geo_line)
+        geo_line = next(reader_geo, None)
+        geo_node, continent = geo_line[:2]
         # read as
-        as_line = as_file.readline()
+        as_line = next(reader_as, None)
         as_number, as_node = parse_as(as_line)
 
         geo_file_ended = False
         while True:
             if geo_file_ended:
-                as_line = as_file.readline()
-                if as_line == '':
+                as_line = next(reader_as, None)
+                if as_line == None:
                     print("as file ended")
                     break
                 as_number, as_node = parse_as(as_line)
             elif int(geo_node.strip('N')) < int(as_node.strip('N')):
                 geo_lost = geo_lost + 1
-                geo_line = geo_file.readline()
-                if geo_line == '':
+                geo_line = next(reader_geo, None)
+                if geo_line == None:
                     print("geo file ended")
                     geo_file_ended = True
                     continue
-                geo_node, continent = parse_geo(geo_line)
+                geo_node, continent = geo_line[:2]
             elif int(geo_node.strip('N')) > int(as_node.strip('N')):
                 geo_mag_as = geo_mag_as + 1
-                as_line = as_file.readline()
-                if as_line == '':
+                as_line = next(reader_as, None)
+                if as_line == None:
                     print("as file ended")
                     break
                 as_number, as_node = parse_as(as_line)
@@ -80,15 +74,16 @@ with open(file_path_as, 'r', encoding="utf8") as as_file:
                     as_geo[as_number][continent+"_nodes_count"] = as_geo[as_number][continent+"_nodes_count"] + 1
                 else:
                     # print(geo_line+"no continent specified")
-                    if continent != '':
+                    if continent != "":
                         print("unknown continent: "+continent)
+                        print(geo_node)
                     no_continent = no_continent + 1
-                geo_line = geo_file.readline()
-                if geo_line == '':
+                geo_line = next(reader_geo, None)
+                if geo_line == None:
                     print("geo file ended")
                     geo_file_ended = True
                     continue
-                geo_node, continent = parse_geo(geo_line)
+                geo_node, continent = geo_line[:2]
 
 print("no continent: "+str(no_continent))
 print("geo lost: "+str(geo_lost))
