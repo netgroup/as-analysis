@@ -10,6 +10,7 @@ from itertools import islice
 import numpy as np
 import csv
 import math
+import time
 
 NODES_FILE_OUT = '_nodes.txt'
 LINKS_FILE_OUT_MA = '_links_ma.txt'
@@ -301,6 +302,8 @@ def graph_statistics(G, no_output=False):
 
     """
 
+    start_time = time.time()
+
     global column_names
     global data_tsv
     global columns_details
@@ -390,6 +393,8 @@ def graph_statistics(G, no_output=False):
             attr['fanout'] = sw_ri_count + sw_ri_count
         if attr['type'] == 'ri' or attr['type'] == 're':
             attr['fanout'] = len(G.adj[n])
+    
+    print("switch analysis completed at {} seconds".format(time.time()-start_time))
 
     # iteraters over the adjacencies to evaluate
     # graph properties
@@ -489,29 +494,41 @@ def graph_statistics(G, no_output=False):
             sw_ifs = sw_ifs + sw
             sw_ifs_distribution.add(sw)
 
+    print("adjacencies analysis completed at {} seconds".format(time.time()-start_time))
+
     # clusterize leaf nodes
 
     dis_leaf_aggr_type, dis_leaf_aggr_leaf1_num = clusterize_leaf_nodes(G)
     leaf_agg_count = dis_leaf_aggr_type.count()
 
-    if no_output:
-        return
+    print("leaf nodes clusterizing completed at {} seconds".format(time.time()-start_time))
     
     # more graph stats
     largest_cc = max(nx.connected_components(G), key=len)
     G_lcc = G.subgraph(largest_cc)
 
+    print("LCC extracted at {} seconds".format(time.time()-start_time))
+
     density = nx.density(G)
+    print("density calculated at {} seconds".format(time.time()-start_time))
     assortativity = nx.degree_pearson_correlation_coefficient(G)    # faster assortativity algorithm
+    print("assortativity calculated at {} seconds".format(time.time()-start_time))
     transitivity = nx.transitivity(G)   # global clustering coeff
+    print("transitivity calculated at {} seconds".format(time.time()-start_time))
 
     # largest connected component
     density_lcc = nx.density(G_lcc)
+    print("density of LCC calculated at {} seconds".format(time.time()-start_time))
     assortativity_lcc = nx.degree_pearson_correlation_coefficient(G_lcc)
+    print("assortativity of LCC calculated at {} seconds".format(time.time()-start_time))
     transitivity_lcc = nx.transitivity(G_lcc)
+    print("transitivity of LCC calculated at {} seconds".format(time.time()-start_time))
     avg_shortest_path_len = nx.average_shortest_path_length(G_lcc)
+    print("avg shortest path length of LCC calculated at {} seconds".format(time.time()-start_time))
     # max_degree = max([d for n, d in G.degree()])
 
+    if no_output:
+        return
 
 
     ############################
@@ -741,6 +758,7 @@ def batch_create_graph_from_file_and_analyze(as_number_list, output_tsv_filename
     output_tsv_filepath = os.path.join(output_dir,output_tsv_filename)
     with open(output_tsv_filepath, 'a', encoding="utf8") as out_file:
         for as_number in as_number_list:
+            start_time = time.time()
             if Directed:
                 G = nx.DiGraph()
             else:
@@ -748,10 +766,13 @@ def batch_create_graph_from_file_and_analyze(as_number_list, output_tsv_filename
             print('\n%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
             print('AS NUMBER: {}'.format(as_number))
             create_graph_from_files(as_number, G, input_dir, links_type)
+            print("Graph built in {} seconds".format(time.time()-start_time))
+            start_time = time.time()
             if eval_conn_comp:
                 G.graph['largest_cc_size'] = len(
                     max(nx.connected_components(G), key=len))
             col_names, dat_tsv, col_details = graph_statistics(G)
+            print("Graph analyzed in {} seconds\nwriting to file...".format(time.time()-start_time))
             out_file.write(dat_tsv + '\n')
     with open(file_col_names, 'w', encoding="utf8") as out_file:
         out_file.write(json.dumps(col_names) + '\n')
@@ -764,8 +785,10 @@ def run_all(input_dir, output_dir, stats_dir, min_size, single_as, links_type):
         as_list = read_as_list(stats_dir, min_size)
     else:
         as_list = [single_as]
-    
+    start_time = time.time()
     batch_create_graph_from_file_and_analyze(as_list, "analysis.tsv", "c_names.json", "c_desc.json", input_dir, links_type, output_dir)
+    execution_time = time.time() - start_time
+    print("Total execution time: {}".format(execution_time))
 
 if __name__ == "__main__":
     input_dir, output_dir, stats_dir, min_size, single_as, links_type = parse()
