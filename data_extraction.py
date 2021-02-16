@@ -15,15 +15,22 @@ LINKS_FILE_OUT_FM = '_links_fm.csv'
 LINKS_FILE_OUT_INTRA_MA = '_links_intra_ma.txt'
 LINKS_FILE_OUT_INTRA_FM = '_links_intra_fm.csv'
 
+
 def parse():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", metavar="input_dir", default="itdk_2020_08_clean", help="input dir containing itdk dataset cleaned")
-    parser.add_argument("-o", metavar="output_dir", default="data_2020_08", help="output dir to write extracted data")
-    parser.add_argument("-s", metavar="stats_dir", default="stats", help="input dir to read statistics")
-    parser.add_argument("--size", metavar="as_size", default="1000", help="minimum size of ASes to be considered")
-    parser.add_argument("--singleas", metavar="single_as", help="AS number of single as to be considered")
+    parser.add_argument("-i", metavar="input_dir", default="itdk_2020_08_clean",
+                        help="input dir containing itdk dataset cleaned")
+    parser.add_argument("-o", metavar="output_dir", default="data_2020_08",
+                        help="output dir to write extracted data")
+    parser.add_argument("-s", metavar="stats_dir",
+                        default="stats", help="input dir to read statistics")
+    parser.add_argument("--size", metavar="as_size", default="1000",
+                        help="minimum size of ASes to be considered")
+    parser.add_argument("--singleas", metavar="single_as",
+                        help="AS number of single as to be considered")
     args = parser.parse_args()
     return args.i, args.o, args.s, args.size, args.singleas
+
 
 def read_as_list(stats_dir, min_size):
     min_size = int(min_size)
@@ -38,6 +45,7 @@ def read_as_list(stats_dir, min_size):
     as_list = as_df["AS_number"].iloc[::-1].tolist()
     as_list[:] = list(map(str, as_list))
     return as_list
+
 
 def extract_as_nodes(as_number, input_dir, output_dir, as_nodes_file=AS_NODES_FILE):
     """
@@ -60,6 +68,7 @@ def extract_as_nodes(as_number, input_dir, output_dir, as_nodes_file=AS_NODES_FI
                     as_nodes.add(node)
     return as_nodes
 
+
 def extract_as_links_ma(set_of_as_nodes, as_number, input_dir, output_dir, links_file=LINKS_FILE_MA):
     """
     selects links of an autonomous sytems
@@ -80,6 +89,7 @@ def extract_as_links_ma(set_of_as_nodes, as_number, input_dir, output_dir, links
                         out_file.write(line)
                         break
 
+
 def extract_as_links_fm(set_of_as_nodes, as_number, input_dir, output_dir, links_file=LINKS_FILE_FM):
     file_path = os.path.join(input_dir, links_file)
     with open(file_path, 'r', encoding="utf8") as myfile:
@@ -90,29 +100,35 @@ def extract_as_links_fm(set_of_as_nodes, as_number, input_dir, output_dir, links
             header = next(reader, None)
             writer.writerow(header)
             for line in reader:
-                if line[1] in set_of_as_nodes or line[2] in set_of_as_nodes:
+                if (len(line) > 1 and line[1] in set_of_as_nodes):
                     writer.writerow(line)
+                elif len(line) > 2 and line[2] in set_of_as_nodes:
+                    writer.writerow(line)
+
 
 # TODO links intra
 def extract_as_links_intra_ma(set_of_as_nodes, as_number, input_dir, output_dir, links_file=LINKS_FILE_MA):
     file_path = os.path.join(input_dir, links_file)
     with open(file_path, 'r', encoding="utf8") as myfile:
-        file_path_out = os.path.join(output_dir, as_number + LINKS_FILE_OUT_INTRA_MA)
+        file_path_out = os.path.join(
+            output_dir, as_number + LINKS_FILE_OUT_INTRA_MA)
         with open(file_path_out, 'w', encoding="utf8") as out_file:
             for line in myfile:
                 tokens = line.split()[1:]
                 link_in_as = True
                 for node in tokens:
-                    if node not in set_of_as_nodes: # entire link is not intra AS
+                    if node not in set_of_as_nodes:  # entire link is not intra AS
                         link_in_as = False
                         break
                 if link_in_as:
                     out_file.write(line)
 
+
 def extract_as_links_intra_fm(set_of_as_nodes, as_number, input_dir, output_dir, links_file=LINKS_FILE_FM):
     file_path = os.path.join(input_dir, links_file)
     with open(file_path, 'r', encoding="utf8") as myfile:
-        file_path_out = os.path.join(output_dir, as_number + LINKS_FILE_OUT_INTRA_FM)
+        file_path_out = os.path.join(
+            output_dir, as_number + LINKS_FILE_OUT_INTRA_FM)
         with open(file_path_out, 'w', encoding="utf8") as out_file:
             reader = csv.reader(myfile)
             writer = csv.writer(out_file)
@@ -121,6 +137,7 @@ def extract_as_links_intra_fm(set_of_as_nodes, as_number, input_dir, output_dir,
             for line in reader:
                 if line[1] in set_of_as_nodes and line[2] in set_of_as_nodes:
                     writer.writerow(line)
+
 
 def run_all(input_dir, output_dir, stats_dir, min_size, single_as):
     # get list of ASes to be extracted
@@ -146,4 +163,3 @@ def run_all(input_dir, output_dir, stats_dir, min_size, single_as):
 if __name__ == "__main__":
     input_dir, output_dir, stats_dir, min_size, single_as = parse()
     run_all(input_dir, output_dir, stats_dir, min_size, single_as)
-    
