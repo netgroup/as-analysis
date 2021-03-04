@@ -7,10 +7,12 @@ name = "pypi"
 pandas = "*"
 networkx = "*"
 scipy = "*"
+matplotlib = "*"
 
 [dev-packages]
 pylint = "*"
 matplotlib = "*"
+ipykernel = "*"
 
 [requires]
 python_version = "3.9"
