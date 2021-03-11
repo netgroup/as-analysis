@@ -33,11 +33,51 @@ def parse():
     parser.add_argument("--minlcc", metavar="min_lcc_coverage", default="0.9", help="minimum LCC coverage of the AS for being analyzed")
     # TODO ############
     parser.add_argument("--lcc", action='store_true', help="only analyze LCC")
-    parser.add_argument("--approx", metavar="approximate_results", default="auto", help="approximate results for average shortest path length (use for large topologies)", choices=["auto", "fixed", "false"])
-    parser.add_argument("--approxsize", metavar="approximation_size", default="1000", help="minimum size of ASes to be considered")
+    parser.add_argument("--approx", action="store_true", help="approximate results for average shortest path length (use for large topologies)")
     ###################
     args = parser.parse_args()
-    return args.i, args.o, args.s, args.size, args.singleas, args.links, args.lcc, args.minlcc
+    return args.i, args.o, args.s, args.size, args.singleas, args.links, args.lcc, args.minlcc, args.approx
+
+def compute_approx_function(min_size, max_size, max_cut):
+    max_cut = max_cut * max_size        # from percentage to actual number
+    slope = max_cut / (max_size - min_size)
+    const = min_size * slope
+    return slope, const
+
+def step_calculator(min_size, max_size, max_cut, nodes_number):
+    if nodes_number > max_size:
+        keep = max_size * (1 - max_cut)
+    else:
+        slope, const = compute_approx_function(min_size, max_size, max_cut)
+        cut = slope * nodes_number - const
+        keep = nodes_number - cut
+        print("nodes: {}, cut: {}, keep: {}".format(nodes_number, cut, keep))
+    step = int(round(nodes_number / keep))
+    print("step: ", step)
+    return step
+
+
+def approx_aspl(G, min_size=1e04, max_size=3e06, max_cut=0.99):
+    nodes_number = G.graph["largest_cc_size"]
+    if nodes_number < min_size:
+        return nx.average_shortest_path_length(G)
+    step = step_calculator(min_size, max_size, max_cut, nodes_number)
+    state = "source"
+    source_nodes_number = 0
+    tot_paths_len = 0
+    nodes = iter(G.nodes)
+    for node in nodes:
+        if state == "source":
+            source_nodes_number = source_nodes_number + 1
+            paths = nx.single_source_shortest_path_length(G, node)
+            avg_path_len = sum(paths.values()) / len(paths)
+            tot_paths_len = tot_paths_len + avg_path_len
+            state = "step"
+        elif state == "step":
+            for i in range(2, step):
+                next(nodes, None)
+            state = "source"
+    return tot_paths_len / source_nodes_number
 
 def read_as_list(stats_dir, min_size):
     min_size = int(min_size)
@@ -294,9 +334,9 @@ def f3(myfloat):
     return '{:.3f}'.format(myfloat)
 
 
-def graph_statistics(G, lcc_only, links_type, min_lcc_cov, no_output=False):
-    """Analyse graph, adds attributes to nodes, classify nodes and returns TSV formatted data
-
+def graph_statistics(G, lcc_only, links_type, min_lcc_cov, approx, no_output=False):
+    """
+    Analyse graph, adds attributes to nodes, classify nodes and returns TSV formatted data
     it adds attributes to the nodes of G as follows
     if a node is a switch
     G.nodes[sw]['ri_count'] : internal routers connected to sw
@@ -304,9 +344,7 @@ def graph_statistics(G, lcc_only, links_type, min_lcc_cov, no_output=False):
 
     G.nodes[n]['class'] : 'leaf1'/'leaf2'/'default'/'border'
     G.nodes[n]['ext_neighs'] : external neighbors
-
     """
-
     start_time = time.time()
 
     global column_names
@@ -548,8 +586,12 @@ def graph_statistics(G, lcc_only, links_type, min_lcc_cov, no_output=False):
     print("assortativity of LCC calculated at {} seconds".format(time.time()-start_time))
     transitivity_lcc = nx.transitivity(G_lcc)
     print("transitivity of LCC calculated at {} seconds".format(time.time()-start_time))
-    avg_shortest_path_len = nx.average_shortest_path_length(G_lcc)
-    print("avg shortest path length of LCC calculated at {} seconds".format(time.time()-start_time))
+    if approx == False:
+        avg_shortest_path_len = nx.average_shortest_path_length(G_lcc)
+        print("avg shortest path length of LCC calculated at {} seconds".format(time.time()-start_time))
+    else:
+        approx_avg_shortest_path_len = approx_aspl(G_lcc)
+        print("approximated avg shortest path length of LCC calculated at {} seconds".format(time.time()-start_time))
     # max_degree = max([d for n, d in G.degree()])
 
     if no_output:
@@ -773,6 +815,9 @@ def graph_statistics(G, lcc_only, links_type, min_lcc_cov, no_output=False):
     add_to_tsv('assortativity_lcc', assortativity_lcc, 'Graph assortativity of largest connected component')
     add_to_tsv('transitivity_lcc', transitivity_lcc, 'Graph transitivity, or global clustering coefficient of largest connected component')
     add_to_tsv('avg_shortest_path_len', avg_shortest_path_len, 'Graph average shortest path length')
+    add_to_tsv('approx_avg_shortest_path_len', approx_avg_shortest_path_len, 'Graph approximated average shortest path length')
+
+    add_to_tsv('time_to_analyze', time.time()-start_time, 'Time needed to analyze the graph')
 
     # print (column_names)
     # print (data_tsv)
@@ -782,7 +827,7 @@ def graph_statistics(G, lcc_only, links_type, min_lcc_cov, no_output=False):
 
 
 def batch_create_graph_from_file_and_analyze(as_number_list, output_tsv_filename, file_col_names, file_col_desc,
-                                             input_dir, links_type, output_dir, lcc_only, min_lcc_cov, eval_conn_comp=True, Directed=False):
+                                             input_dir, links_type, output_dir, lcc_only, min_lcc_cov, approx, eval_conn_comp=True, Directed=False):
     """
     create the networkx graph, analyze it, write TSV and readable text
     output_tsv_filename is the name of the TSV output file 
@@ -815,7 +860,7 @@ def batch_create_graph_from_file_and_analyze(as_number_list, output_tsv_filename
             if eval_conn_comp:
                 G.graph['largest_cc_size'] = len(
                     max(nx.connected_components(G), key=len))
-            returned_stats = graph_statistics(G, lcc_only, links_type, min_lcc_cov)
+            returned_stats = graph_statistics(G, lcc_only, links_type, min_lcc_cov, approx)
             if len(returned_stats) == 3:
                 col_names, dat_tsv, col_details = returned_stats
                 print("Graph analyzed in {} seconds\nwriting to file...".format(time.time()-start_time))
@@ -827,17 +872,17 @@ def batch_create_graph_from_file_and_analyze(as_number_list, output_tsv_filename
     with open(file_col_desc, 'w', encoding="utf8") as out_file:
         out_file.write(json.dumps(col_details) + '\n')
 
-def run_all(input_dir, output_dir, stats_dir, min_size, single_as, links_type, lcc_only, min_lcc_cov):
+def run_all(input_dir, output_dir, stats_dir, min_size, single_as, links_type, lcc_only, min_lcc_cov, approx):
     # get list of ASes to be analyzed
     if single_as is None:
         as_list = read_as_list(stats_dir, min_size)
     else:
         as_list = [single_as]
     start_time = time.time()
-    batch_create_graph_from_file_and_analyze(as_list, "analysis.tsv", "c_names.json", "c_desc.json", input_dir, links_type, output_dir, lcc_only, min_lcc_cov)
+    batch_create_graph_from_file_and_analyze(as_list, "analysis.tsv", "c_names.json", "c_desc.json", input_dir, links_type, output_dir, lcc_only, min_lcc_cov, approx)
     execution_time = time.time() - start_time
     print("Total execution time: {}".format(execution_time))
 
 if __name__ == "__main__":
-    input_dir, output_dir, stats_dir, min_size, single_as, links_type, lcc_only, min_lcc_cov = parse()
-    run_all(input_dir, output_dir, stats_dir, min_size, single_as, links_type, lcc_only, min_lcc_cov)
+    input_dir, output_dir, stats_dir, min_size, single_as, links_type, lcc_only, min_lcc_cov, approx = parse()
+    run_all(input_dir, output_dir, stats_dir, min_size, single_as, links_type, lcc_only, min_lcc_cov, approx)
