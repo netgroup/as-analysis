@@ -10,7 +10,7 @@ with open("stats/as_count.csv", 'r', encoding="utf8") as as_count_file:
     headers = next(reader, None)
     i = 0
     while i < 10:
-        with open("stats_"+str(i%10)+"/as_count.csv", 'w', encoding="utf8") as as_count_file_out:
+        with open("stats_"+str(i % 10)+"/as_count.csv", 'w', encoding="utf8") as as_count_file_out:
             writer = csv.writer(as_count_file_out)
             writer.writerow(headers)
         i = i + 1
@@ -20,6 +20,6 @@ with open("stats/as_count.csv", 'r', encoding="utf8") as as_count_file:
         line_num = line_num + 1
         if line_num == 1901:
             break
-        with open("stats_"+str(line_num%10)+"/as_count.csv", 'a', encoding="utf8") as as_count_file_out:
+        with open("stats_"+str(line_num % 10)+"/as_count.csv", 'a', encoding="utf8") as as_count_file_out:
             writer = csv.writer(as_count_file_out)
             writer.writerow(line)
