@@ -590,6 +590,8 @@ def graph_statistics(G, lcc_only, links_type, min_lcc_cov, approx, no_output=Fal
         avg_shortest_path_len = nx.average_shortest_path_length(G_lcc)
         print("avg shortest path length of LCC calculated at {} seconds".format(time.time()-start_time))
     else:
+        avg_shortest_path_len = nx.average_shortest_path_length(G_lcc)
+        print("avg shortest path length of LCC calculated at {} seconds".format(time.time()-start_time))
         approx_avg_shortest_path_len = approx_aspl(G_lcc)
         print("approximated avg shortest path length of LCC calculated at {} seconds".format(time.time()-start_time))
     # max_degree = max([d for n, d in G.degree()])
