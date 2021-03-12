@@ -5,18 +5,38 @@ import argparse
 import os
 from functools import cmp_to_key
 import pandas as pd
+import logging
+
+LOG_PATH = 'logs'
+LOG_F_NAME = 'stats_extraction_log'
+
+logFormatter = logging.Formatter(
+    "%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
+rootLogger = logging.getLogger()
+rootLogger.setLevel(logging.DEBUG)
+fileHandler = logging.FileHandler("{0}/{1}.log".format(LOG_PATH, LOG_F_NAME))
+fileHandler.setFormatter(logFormatter)
+rootLogger.addHandler(fileHandler)
+
+consoleHandler = logging.StreamHandler()
+consoleHandler.setFormatter(logFormatter)
+rootLogger.addHandler(consoleHandler)
 
 AS_NODES_FILE = "midar-iff.nodes.as"
 LINKS_FILE = "midar-iff.links"
 GEO_FILE = "midar-iff.nodes.geo"
 GEO_FILE_SORTED = "midar-iff.nodes.geo_sorted"
 
+
 def parse():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", metavar="input_dir", default="itdk_2020_08", help="input dir containing itdk dataset")
-    parser.add_argument("-o", metavar="output_dir", default="stats", help="output dir to write statistics")
+    parser.add_argument("-i", metavar="input_dir", default="itdk_2020_08",
+                        help="input dir containing itdk dataset")
+    parser.add_argument("-o", metavar="output_dir",
+                        default="stats", help="output dir to write statistics")
     args = parser.parse_args()
     return args.i, args.o
+
 
 def nodes_count(input_dir, output_dir):
     as_count = dict()
@@ -29,7 +49,8 @@ def nodes_count(input_dir, output_dir):
                 as_count[as_number] = as_count[as_number] + 1
             else:
                 as_count[as_number] = 1
-    df = pd.DataFrame(data=as_count.items(), columns=['AS_number', 'nodes_count']).set_index('AS_number')
+    df = pd.DataFrame(data=as_count.items(), columns=[
+                      'AS_number', 'nodes_count']).set_index('AS_number')
     df = df.sort_values(by='nodes_count', ascending=False)
     as_count_csv = df.to_csv()
     file_path = os.path.join(output_dir, "as_count.csv")
@@ -38,12 +59,11 @@ def nodes_count(input_dir, output_dir):
     return as_count
 
 
-
 if __name__ == "__main__":
     input_dir, output_dir = parse()
     # count nodes in every AS
-    print("counting nodes for every AS...")
+    logging.info("counting nodes for every AS...")
     nodes_count(input_dir, output_dir)
-    print("nodes counted!")
+    logging.info("nodes counted!")
     # count links in every AS
-    print("counting links for every AS...")
+    logging.info("counting links for every AS...")

@@ -11,6 +11,22 @@ import numpy as np
 import csv
 import math
 import time
+import logging
+
+LOG_PATH = 'logs'
+LOG_F_NAME = 'graph_analysis_log'
+
+logFormatter = logging.Formatter(
+    "%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
+rootLogger = logging.getLogger()
+rootLogger.setLevel(logging.DEBUG)
+fileHandler = logging.FileHandler("{0}/{1}.log".format(LOG_PATH, LOG_F_NAME))
+fileHandler.setFormatter(logFormatter)
+rootLogger.addHandler(fileHandler)
+
+consoleHandler = logging.StreamHandler()
+consoleHandler.setFormatter(logFormatter)
+rootLogger.addHandler(consoleHandler)
 
 NODES_FILE_OUT = '_nodes.txt'
 LINKS_FILE_OUT_MA = '_links_ma.txt'
@@ -22,27 +38,38 @@ column_names = []
 data_tsv = ''
 columns_details = []
 
+
 def parse():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", metavar="input_dir", default="data_2020_08", help="input dir containing per AS extracted data")
-    parser.add_argument("-o", metavar="output_dir", default="analysis_2020_08", help="output dir to write analysis output")
-    parser.add_argument("-s", metavar="stats_dir", default="stats", help="input dir to read statistics")
-    parser.add_argument("--size", metavar="as_size", default="1000", help="minimum size of ASes to be considered")
-    parser.add_argument("--singleas", metavar="single_as", help="AS number of single as to be considered")
-    parser.add_argument("--links", metavar="links_type", default="fm", help="link types: ma fm intra_ma intra_fm", choices=["ma", "fm", "intra_ma", "intra_fm"])
-    parser.add_argument("--minlcc", metavar="min_lcc_coverage", default="0.9", help="minimum LCC coverage of the AS for being analyzed")
+    parser.add_argument("-i", metavar="input_dir", default="data_2020_08",
+                        help="input dir containing per AS extracted data")
+    parser.add_argument("-o", metavar="output_dir", default="analysis_2020_08",
+                        help="output dir to write analysis output")
+    parser.add_argument("-s", metavar="stats_dir",
+                        default="stats", help="input dir to read statistics")
+    parser.add_argument("--size", metavar="as_size", default="1000",
+                        help="minimum size of ASes to be considered")
+    parser.add_argument("--singleas", metavar="single_as",
+                        help="AS number of single as to be considered")
+    parser.add_argument("--links", metavar="links_type", default="fm",
+                        help="link types: ma fm intra_ma intra_fm", choices=["ma", "fm", "intra_ma", "intra_fm"])
+    parser.add_argument("--minlcc", metavar="min_lcc_coverage", default="0.9",
+                        help="minimum LCC coverage of the AS for being analyzed")
     # TODO ############
     parser.add_argument("--lcc", action='store_true', help="only analyze LCC")
-    parser.add_argument("--approx", action="store_true", help="approximate results for average shortest path length (use for large topologies)")
+    parser.add_argument("--approx", action="store_true",
+                        help="approximate results for average shortest path length (use for large topologies)")
     ###################
     args = parser.parse_args()
     return args.i, args.o, args.s, args.size, args.singleas, args.links, args.lcc, args.minlcc, args.approx
+
 
 def compute_approx_function(min_size, max_size, max_cut):
     max_cut = max_cut * max_size        # from percentage to actual number
     slope = max_cut / (max_size - min_size)
     const = min_size * slope
     return slope, const
+
 
 def step_calculator(min_size, max_size, max_cut, nodes_number):
     if nodes_number > max_size:
@@ -51,9 +78,9 @@ def step_calculator(min_size, max_size, max_cut, nodes_number):
         slope, const = compute_approx_function(min_size, max_size, max_cut)
         cut = slope * nodes_number - const
         keep = nodes_number - cut
-        print("nodes: {}, cut: {}, keep: {}".format(nodes_number, cut, keep))
+        logging.debug("nodes: {}, cut: {}, keep: {}".format(nodes_number, cut, keep))
     step = int(round(nodes_number / keep))
-    print("step: ", step)
+    logging.debug("step: ", step)
     return step
 
 
@@ -79,6 +106,7 @@ def approx_aspl(G, min_size=1e04, max_size=3e06, max_cut=0.99):
             state = "source"
     return tot_paths_len / source_nodes_number
 
+
 def read_as_list(stats_dir, min_size):
     min_size = int(min_size)
     # select all as with the desired size in terms of number of nodes
@@ -92,6 +120,7 @@ def read_as_list(stats_dir, min_size):
     as_list = as_df["AS_number"].iloc[::-1].tolist()
     as_list[:] = list(map(str, as_list))
     return as_list
+
 
 def read_as_nodes_from_file(path):
     """Reads nodes from file, returns a set of nodes
@@ -125,8 +154,9 @@ def read_links_from_file(path, links_type):
             reader = csv.reader(myfile)
             next(reader, None)  # skip the headers
             for line in reader:
-                links[line[0]] = [line[1],line[2]]
+                links[line[0]] = [line[1], line[2]]
     return links
+
 
 def split_dict(data, size):
     result = []
@@ -135,13 +165,14 @@ def split_dict(data, size):
         result.append({k: data[k] for k in islice(it, size)})
     return result
 
+
 def update_graph_from_links(links, G):
     """Updates the graph G with the information in the links dictionary"""
     for link_id, node_list in links.items():
         if len(node_list) > 2:
             G.add_node(link_id, type='sw')
             for node in node_list:
-# TODO check if belonging to another AS?
+                # TODO check if belonging to another AS?
                 if node not in G:
                     G.add_node(node, type='re')
                 G.add_edge(node, link_id, type='ma', weight=1)
@@ -158,6 +189,7 @@ def update_graph_from_links(links, G):
                 G.add_edge(node_list[1], node_list[0],
                            id=link_id, type='pp', weight=1)
 
+
 def create_graph_from_files(as_number, G, input_dir, links_type="ma"):
     """
     create graph from nodes and links files
@@ -165,8 +197,8 @@ def create_graph_from_files(as_number, G, input_dir, links_type="ma"):
     """
     nodes_file_path = os.path.join(input_dir, as_number + NODES_FILE_OUT)
     as_nodes = read_as_nodes_from_file(nodes_file_path)
-    print("AS: {}".format(as_number))
-    print("Number of nodes (AS routers): {}".format(len(as_nodes)))
+    logging.debug("AS: {}".format(as_number))
+    logging.debug("Number of nodes (AS routers): {}".format(len(as_nodes)))
     if links_type == "ma":
         links_file_suffix = LINKS_FILE_OUT_MA
     elif links_type == "fm":
@@ -181,7 +213,7 @@ def create_graph_from_files(as_number, G, input_dir, links_type="ma"):
         pass
     links_file_path = os.path.join(input_dir, as_number + links_file_suffix)
     links = read_links_from_file(links_file_path, links_type)
-    print("Number of links: {}".format(len(links)))
+    logging.debug("Number of links: {}".format(len(links)))
     G.graph['dataset_nodes'] = len(as_nodes)
     array_num_split = 600 if len(as_nodes) >= 600 else 1
     as_nodes_splitted = np.array_split(np.array(as_nodes), array_num_split)
@@ -248,6 +280,7 @@ class Mydistribution:
 
     def get(self, key):
         return self.distrib[key]
+
 
 def reset_tsv():
     global column_names
@@ -322,13 +355,15 @@ def clusterize_leaf_nodes(G):
 
     return distr_leaf_aggregator_type, distr_leaf_aggr_leaf1_num
 
+
 def safety_check(left, right, left_description, right_description, relative_tol=1e-4):
     if not (math.isclose(left, right, rel_tol=relative_tol)):
-        print("ERROR {} : {} IS DIFFERENT FROM {} : {}".format(
+        logging.error("ERROR {} : {} IS DIFFERENT FROM {} : {}".format(
             left_description, left, right_description, right))
         #print ("ERROR avg_ri_pp_ifs : {} different from distribution average : {}".format(float(ri_pp_ifs)/ri_count,ri_pp_ifs_distribution.mean()))
         raise Exception("Inconsistent {} vs {}".format(
             left_description, right_description))
+
 
 def f3(myfloat):
     return '{:.3f}'.format(myfloat)
@@ -439,8 +474,9 @@ def graph_statistics(G, lcc_only, links_type, min_lcc_cov, approx, no_output=Fal
                 attr['fanout'] = sw_ri_count + sw_ri_count
             if attr['type'] == 'ri' or attr['type'] == 're':
                 attr['fanout'] = len(G.adj[n])
-        
-        print("switch analysis completed at {} seconds".format(time.time()-start_time))
+
+        logging.info("switch analysis completed at {} seconds".format(
+            time.time()-start_time))
 
     # iteraters over the adjacencies to evaluate
     # graph properties
@@ -542,11 +578,13 @@ def graph_statistics(G, lcc_only, links_type, min_lcc_cov, approx, no_output=Fal
             sw_ifs = sw_ifs + sw
             sw_ifs_distribution.add(sw)
 
-    print("adjacencies analysis completed at {} seconds".format(time.time()-start_time))
+    logging.info("adjacencies analysis completed at {} seconds".format(
+        time.time()-start_time))
 
     lcc_cov = G.graph['largest_cc_size'] / (ri_count + re_count)
     if lcc_cov < float(min_lcc_cov):
-        print("LCC coverage is: {}\nlower than minimum desired: {}\nAS not analyzed".format(lcc_cov, min_lcc_cov))
+        logging.info("LCC coverage is: {}\nlower than minimum desired: {}\nAS not analyzed".format(
+            lcc_cov, min_lcc_cov))
         return []
 
     # clusterize leaf nodes
@@ -554,21 +592,25 @@ def graph_statistics(G, lcc_only, links_type, min_lcc_cov, approx, no_output=Fal
     dis_leaf_aggr_type, dis_leaf_aggr_leaf1_num = clusterize_leaf_nodes(G)
     leaf_agg_count = dis_leaf_aggr_type.count()
 
-    print("leaf nodes clusterizing completed at {} seconds".format(time.time()-start_time))
-    
+    logging.info("leaf nodes clusterizing completed at {} seconds".format(
+        time.time()-start_time))
+
     # more graph stats with LCC
     largest_cc = max(nx.connected_components(G), key=len)
     G_lcc = G.subgraph(largest_cc)
 
-    print("LCC extracted at {} seconds".format(time.time()-start_time))
+    logging.info("LCC extracted at {} seconds".format(time.time()-start_time))
 
     if not lcc_only:
         density = nx.density(G)
-        print("density calculated at {} seconds".format(time.time()-start_time))
-        assortativity = nx.degree_pearson_correlation_coefficient(G)    # faster assortativity algorithm
-        print("assortativity calculated at {} seconds".format(time.time()-start_time))
+        logging.info("density calculated at {} seconds".format(time.time()-start_time))
+        assortativity = nx.degree_pearson_correlation_coefficient(
+            G)    # faster assortativity algorithm
+        logging.info("assortativity calculated at {} seconds".format(
+            time.time()-start_time))
         transitivity = nx.transitivity(G)   # global clustering coeff
-        print("transitivity calculated at {} seconds".format(time.time()-start_time))
+        logging.info("transitivity calculated at {} seconds".format(
+            time.time()-start_time))
 
     # largest connected component
     core_number = nx.core_number(G_lcc)
@@ -579,26 +621,30 @@ def graph_statistics(G, lcc_only, links_type, min_lcc_cov, approx, no_output=Fal
     for coreness in core_number.values():
         if coreness == graph_coreness:
             core_order = core_order + 1
-    print("coreness stats calculated at {} seconds".format(time.time()-start_time))
+    logging.info("coreness stats calculated at {} seconds".format(time.time()-start_time))
     density_lcc = nx.density(G_lcc)
-    print("density of LCC calculated at {} seconds".format(time.time()-start_time))
+    logging.info("density of LCC calculated at {} seconds".format(time.time()-start_time))
     assortativity_lcc = nx.degree_pearson_correlation_coefficient(G_lcc)
-    print("assortativity of LCC calculated at {} seconds".format(time.time()-start_time))
+    logging.info("assortativity of LCC calculated at {} seconds".format(
+        time.time()-start_time))
     transitivity_lcc = nx.transitivity(G_lcc)
-    print("transitivity of LCC calculated at {} seconds".format(time.time()-start_time))
+    logging.info("transitivity of LCC calculated at {} seconds".format(
+        time.time()-start_time))
     if approx == False:
         avg_shortest_path_len = nx.average_shortest_path_length(G_lcc)
-        print("avg shortest path length of LCC calculated at {} seconds".format(time.time()-start_time))
+        logging.info("avg shortest path length of LCC calculated at {} seconds".format(
+            time.time()-start_time))
     else:
         avg_shortest_path_len = nx.average_shortest_path_length(G_lcc)
-        print("avg shortest path length of LCC calculated at {} seconds".format(time.time()-start_time))
+        logging.info("avg shortest path length of LCC calculated at {} seconds".format(
+            time.time()-start_time))
         approx_avg_shortest_path_len = approx_aspl(G_lcc)
-        print("approximated avg shortest path length of LCC calculated at {} seconds".format(time.time()-start_time))
+        logging.info("approximated avg shortest path length of LCC calculated at {} seconds".format(
+            time.time()-start_time))
     # max_degree = max([d for n, d in G.degree()])
 
     if no_output:
         return
-
 
     ############################
     # returns 1 TSV formatted and 2 JSON formatted strings
@@ -622,10 +668,10 @@ def graph_statistics(G, lcc_only, links_type, min_lcc_cov, approx, no_output=Fal
                'size of largest connected component (number of AS nodes, non-AS nodes and switches')
     if links_type == "ma" or links_type == "intra_ma":
         add_to_tsv('largest_cc_coverage', G.graph['largest_cc_size'] / (ri_count + re_count + sw_count),
-                'fraction of largest connected component vs size of graph (number of AS nodes, non-AS nodes and switches')
+                   'fraction of largest connected component vs size of graph (number of AS nodes, non-AS nodes and switches')
     else:
         add_to_tsv('largest_cc_coverage', G.graph['largest_cc_size'] / (ri_count + re_count),
-                'fraction of largest connected component vs size of graph (number of AS nodes and non-AS nodes')
+                   'fraction of largest connected component vs size of graph (number of AS nodes and non-AS nodes')
 
     add_to_tsv('as_routers', ri_count, 'AS routers')
     add_to_tsv('non_as_routers', re_count, 'non-AS routers')
@@ -640,61 +686,61 @@ def graph_statistics(G, lcc_only, links_type, min_lcc_cov, approx, no_output=Fal
 
     if ri_count != 0:
         m_add_to_tsv([('ri_avg_pp_ifs', f3(ri_pp_ifs / ri_count), 'Average of PP interfaces for AS routers'),
-                    ('ri_max_pp_ifs', ri_pp_ifs_distribution.maxval(),
-                    'Max of PP interfaces for AS routers'),
-                    ('ri_tot_pp_ifs', ri_pp_ifs, 'Total PP interfaces of AS routers')])
+                      ('ri_max_pp_ifs', ri_pp_ifs_distribution.maxval(),
+                       'Max of PP interfaces for AS routers'),
+                      ('ri_tot_pp_ifs', ri_pp_ifs, 'Total PP interfaces of AS routers')])
 
         if links_type == "ma" or links_type == "intra_ma":
             m_add_to_tsv([('ri_avg_ma_ifs', f3(ri_ma_ifs / ri_count), 'Average of MA interfaces for AS routers'),
-                        ('ri_max_ma_ifs', ri_ma_ifs_distribution.maxval(),
-                        'Max of MA interfaces for AS routers'),
-                        ('ri_tot_ma_ifs', ri_ma_ifs, 'Total MA interfaces of AS routers')])
+                          ('ri_max_ma_ifs', ri_ma_ifs_distribution.maxval(),
+                           'Max of MA interfaces for AS routers'),
+                          ('ri_tot_ma_ifs', ri_ma_ifs, 'Total MA interfaces of AS routers')])
 
             m_add_to_tsv([('ri_avg_tot_ifs', f3(ri_tot_ifs / ri_count), 'Average of total interfaces for AS routers'),
-                        ('ri_max_tot_ifs', ri_tot_ifs_distribution.maxval(),
-                        'Max of total interfaces for AS routers'),
-                        ('ri_tot_tot_ifs', ri_tot_ifs, 'Total interfaces of AS routers')])
+                          ('ri_max_tot_ifs', ri_tot_ifs_distribution.maxval(),
+                           'Max of total interfaces for AS routers'),
+                          ('ri_tot_tot_ifs', ri_tot_ifs, 'Total interfaces of AS routers')])
     else:
         m_add_to_tsv([('ri_avg_pp_ifs', 'N/A', 'Average of PP interfaces for AS routers'),
-                    ('ri_max_pp_ifs', ri_pp_ifs_distribution.maxval(),
-                    'Max of PP interfaces for AS routers'),
-                    ('ri_tot_pp_ifs', ri_pp_ifs, 'Total PP interfaces of AS routers')])
+                      ('ri_max_pp_ifs', ri_pp_ifs_distribution.maxval(),
+                       'Max of PP interfaces for AS routers'),
+                      ('ri_tot_pp_ifs', ri_pp_ifs, 'Total PP interfaces of AS routers')])
 
         if links_type == "ma" or links_type == "intra_ma":
             m_add_to_tsv([('ri_avg_ma_ifs', 'N/A', 'Average of MA interfaces for AS routers'),
-                        ('ri_max_ma_ifs', ri_ma_ifs_distribution.maxval(),
-                        'Max of MA interfaces for AS routers'),
-                        ('ri_tot_ma_ifs', ri_ma_ifs, 'Total MA interfaces of AS routers')])
+                          ('ri_max_ma_ifs', ri_ma_ifs_distribution.maxval(),
+                           'Max of MA interfaces for AS routers'),
+                          ('ri_tot_ma_ifs', ri_ma_ifs, 'Total MA interfaces of AS routers')])
 
             m_add_to_tsv([('ri_avg_tot_ifs', 'N/A', 'Average of total interfaces for AS routers'),
-                        ('ri_max_tot_ifs', ri_tot_ifs_distribution.maxval(),
-                        'Max of total interfaces for AS routers'),
-                        ('ri_tot_tot_ifs', ri_tot_ifs, 'Total interfaces of AS routers')])
+                          ('ri_max_tot_ifs', ri_tot_ifs_distribution.maxval(),
+                           'Max of total interfaces for AS routers'),
+                          ('ri_tot_tot_ifs', ri_tot_ifs, 'Total interfaces of AS routers')])
 
     if links_type == "ma" or links_type == "intra_ma":
         if ri_ma_ifs != 0:
             m_add_to_tsv(
                 [('ri_avg_ma_neighs', f3(ri_ma_neighs / ri_ma_ifs), 'Average of neighbors on each MA interface for AS routers'),
-                ('ri_max_ma_neighs', ri_ma_neighs_distribution.maxval(),
-                'Max of neighbors on a MA interface for AS routers'),
-                ('ri_tot_ma_neighs', ri_ma_neighs, 'Total neighbors on MA interfaces for AS routers')])
+                 ('ri_max_ma_neighs', ri_ma_neighs_distribution.maxval(),
+                  'Max of neighbors on a MA interface for AS routers'),
+                 ('ri_tot_ma_neighs', ri_ma_neighs, 'Total neighbors on MA interfaces for AS routers')])
         else:
             m_add_to_tsv(
                 [('ri_avg_ma_neighs', 'N/A', 'Average of neighbors on each MA interface for AS routers'),
-                ('ri_max_ma_neighs', ri_ma_neighs_distribution.maxval(),
-                'Max of neighbors on a MA interface for AS routers'),
-                ('ri_tot_ma_neighs', ri_ma_neighs, 'Total neighbors on MA interfaces for AS routers')])
+                 ('ri_max_ma_neighs', ri_ma_neighs_distribution.maxval(),
+                  'Max of neighbors on a MA interface for AS routers'),
+                 ('ri_tot_ma_neighs', ri_ma_neighs, 'Total neighbors on MA interfaces for AS routers')])
 
     if ri_count != 0:
         m_add_to_tsv([('ri_avg_tot_neighs', f3(ri_tot_neighs / ri_count), 'Average of neighbors for AS routers'),
-                    ('ri_max_tot_neighs', ri_tot_neighs_distribution.maxval(),
-                    'Max of neighbors for AS routers'),
-                    ('ri_tot_tot_neighs', ri_tot_neighs, 'Total neighbors for AS routers')])
+                      ('ri_max_tot_neighs', ri_tot_neighs_distribution.maxval(),
+                       'Max of neighbors for AS routers'),
+                      ('ri_tot_tot_neighs', ri_tot_neighs, 'Total neighbors for AS routers')])
     else:
         m_add_to_tsv([('ri_avg_tot_neighs', 'N/A', 'Average of neighbors for AS routers'),
-                    ('ri_max_tot_neighs', ri_tot_neighs_distribution.maxval(),
-                    'Max of neighbors for AS routers'),
-                    ('ri_tot_tot_neighs', ri_tot_neighs, 'Total neighbors for AS routers')])
+                      ('ri_max_tot_neighs', ri_tot_neighs_distribution.maxval(),
+                       'Max of neighbors for AS routers'),
+                      ('ri_tot_tot_neighs', ri_tot_neighs, 'Total neighbors for AS routers')])
 
     m_add_to_tsv([('ri_leaf1_aggr', leaf_agg_count, 'Leaf1 aggregator internal routers'),
                   ('avg_leaf1_per_leaf1_aggr', dis_leaf_aggr_leaf1_num.mean(),
@@ -704,83 +750,83 @@ def graph_statistics(G, lcc_only, links_type, min_lcc_cov, approx, no_output=Fal
 
     if re_count != 0:
         m_add_to_tsv([('re_avg_pp_ifs', f3(re_pp_ifs / re_count), 'Average of PP interfaces for non-AS routers'),
-                    ('re_max_pp_ifs', re_pp_ifs_distribution.maxval(),
-                    'Max of PP interfaces for non-AS routers'),
-                    ('re_tot_pp_ifs', re_pp_ifs, 'Total PP interfaces of non-AS routers')])
+                      ('re_max_pp_ifs', re_pp_ifs_distribution.maxval(),
+                       'Max of PP interfaces for non-AS routers'),
+                      ('re_tot_pp_ifs', re_pp_ifs, 'Total PP interfaces of non-AS routers')])
 
         if links_type == "ma" or links_type == "intra_ma":
             m_add_to_tsv([('re_avg_ma_ifs', f3(re_ma_ifs / re_count), 'Average of MA interfaces for non-AS routers'),
-                        ('re_max_ma_ifs', re_ma_ifs_distribution.maxval(),
-                        'Max of MA interfaces for non-AS routers'),
-                        ('re_tot_ma_ifs', re_ma_ifs, 'Total MA interfaces of non-AS routers')])
+                          ('re_max_ma_ifs', re_ma_ifs_distribution.maxval(),
+                           'Max of MA interfaces for non-AS routers'),
+                          ('re_tot_ma_ifs', re_ma_ifs, 'Total MA interfaces of non-AS routers')])
 
             m_add_to_tsv([('re_avg_tot_ifs', f3(re_tot_ifs / re_count), 'Average of total interfaces for non-AS routers'),
-                        ('re_max_tot_ifs', re_tot_ifs_distribution.maxval(),
-                        'Max of total interfaces for non-AS routers'),
-                        ('re_tot_tot_ifs', re_tot_ifs, 'Total interfaces of non-AS routers')])
+                          ('re_max_tot_ifs', re_tot_ifs_distribution.maxval(),
+                           'Max of total interfaces for non-AS routers'),
+                          ('re_tot_tot_ifs', re_tot_ifs, 'Total interfaces of non-AS routers')])
     else:
         m_add_to_tsv([('re_avg_pp_ifs', 'N/A', 'Average of PP interfaces for non-AS routers'),
-                    ('re_max_pp_ifs', re_pp_ifs_distribution.maxval(),
-                    'Max of PP interfaces for non-AS routers'),
-                    ('re_tot_pp_ifs', re_pp_ifs, 'Total PP interfaces of non-AS routers')])
+                      ('re_max_pp_ifs', re_pp_ifs_distribution.maxval(),
+                       'Max of PP interfaces for non-AS routers'),
+                      ('re_tot_pp_ifs', re_pp_ifs, 'Total PP interfaces of non-AS routers')])
 
         if links_type == "ma" or links_type == "intra_ma":
             m_add_to_tsv([('re_avg_ma_ifs', 'N/A', 'Average of MA interfaces for non-AS routers'),
-                        ('re_max_ma_ifs', re_ma_ifs_distribution.maxval(),
-                        'Max of MA interfaces for non-AS routers'),
-                        ('re_tot_ma_ifs', re_ma_ifs, 'Total MA interfaces of non-AS routers')])
+                          ('re_max_ma_ifs', re_ma_ifs_distribution.maxval(),
+                           'Max of MA interfaces for non-AS routers'),
+                          ('re_tot_ma_ifs', re_ma_ifs, 'Total MA interfaces of non-AS routers')])
 
             m_add_to_tsv([('re_avg_tot_ifs', 'N/A', 'Average of total interfaces for non-AS routers'),
-                        ('re_max_tot_ifs', re_tot_ifs_distribution.maxval(),
-                        'Max of total interfaces for non-AS routers'),
-                        ('re_tot_tot_ifs', re_tot_ifs, 'Total interfaces of non-AS routers')])
+                          ('re_max_tot_ifs', re_tot_ifs_distribution.maxval(),
+                           'Max of total interfaces for non-AS routers'),
+                          ('re_tot_tot_ifs', re_tot_ifs, 'Total interfaces of non-AS routers')])
 
     if links_type == "ma" or links_type == "intra_ma":
         if re_ma_ifs != 0:
             m_add_to_tsv([('re_avg_ma_neighs', f3(re_ma_neighs / re_ma_ifs),
-                        'Average of neighbors on each MA interface for non-AS routers'),
-                        ('re_max_ma_neighs', re_ma_neighs_distribution.maxval(),
-                        'Max of neighbors on a MA interface for non-AS routers'),
-                        ('re_tot_ma_neighs', re_ma_neighs, 'Total neighbors on MA interfaces for non-AS routers')])
+                           'Average of neighbors on each MA interface for non-AS routers'),
+                          ('re_max_ma_neighs', re_ma_neighs_distribution.maxval(),
+                           'Max of neighbors on a MA interface for non-AS routers'),
+                          ('re_tot_ma_neighs', re_ma_neighs, 'Total neighbors on MA interfaces for non-AS routers')])
         else:
             m_add_to_tsv([('re_avg_ma_neighs', 'N/A',
-                        'Average of neighbors on each MA interface for non-AS routers'),
-                        ('re_max_ma_neighs', re_ma_neighs_distribution.maxval(),
-                        'Max of neighbors on a MA interface for non-AS routers'),
-                        ('re_tot_ma_neighs', re_ma_neighs, 'Total neighbors on MA interfaces for non-AS routers')])
+                           'Average of neighbors on each MA interface for non-AS routers'),
+                          ('re_max_ma_neighs', re_ma_neighs_distribution.maxval(),
+                           'Max of neighbors on a MA interface for non-AS routers'),
+                          ('re_tot_ma_neighs', re_ma_neighs, 'Total neighbors on MA interfaces for non-AS routers')])
 
     if re_count != 0:
         m_add_to_tsv([('re_avg_tot_neighs', f3(re_tot_neighs / re_count), 'Average of neighbors for non-AS routers'),
-                    ('re_max_tot_neighs', re_tot_neighs_distribution.maxval(),
-                    'Max of neighbors for non-AS routers'),
-                    ('re_tot_tot_neighs', re_tot_neighs, 'Total neighbors for non-AS routers')])
+                      ('re_max_tot_neighs', re_tot_neighs_distribution.maxval(),
+                       'Max of neighbors for non-AS routers'),
+                      ('re_tot_tot_neighs', re_tot_neighs, 'Total neighbors for non-AS routers')])
     else:
         m_add_to_tsv([('re_avg_tot_neighs', 'N/A', 'Average of neighbors for non-AS routers'),
-                    ('re_max_tot_neighs', re_tot_neighs_distribution.maxval(),
-                    'Max of neighbors for non-AS routers'),
-                    ('re_tot_tot_neighs', re_tot_neighs, 'Total neighbors for non-AS routers')])
+                      ('re_max_tot_neighs', re_tot_neighs_distribution.maxval(),
+                       'Max of neighbors for non-AS routers'),
+                      ('re_tot_tot_neighs', re_tot_neighs, 'Total neighbors for non-AS routers')])
 
     if links_type == "ma" or links_type == "intra_ma":
         if sw_count != 0:
             m_add_to_tsv([('sw_avg_ifs', f3(sw_ifs / sw_count), 'Average of interfaces for switches'),
-                        ('sw_max_ifs', sw_ifs_distribution.maxval(),
-                        'Max of interfaces for switches'),
-                        ('sw_tot_ifs', sw_ifs, 'Total interfaces of switches')])
+                          ('sw_max_ifs', sw_ifs_distribution.maxval(),
+                           'Max of interfaces for switches'),
+                          ('sw_tot_ifs', sw_ifs, 'Total interfaces of switches')])
         else:
             m_add_to_tsv([('sw_avg_ifs', 'N/A', 'Average of interfaces for switches'),
-                        ('sw_max_ifs', sw_ifs_distribution.maxval(),
-                        'Max of interfaces for switches'),
-                        ('sw_tot_ifs', sw_ifs, 'Total interfaces of switches')])
+                          ('sw_max_ifs', sw_ifs_distribution.maxval(),
+                           'Max of interfaces for switches'),
+                          ('sw_tot_ifs', sw_ifs, 'Total interfaces of switches')])
 
     add_to_tsv('ri_pp_ifs_dis', ri_pp_ifs_distribution.to_json(),
                'Distribution of PP interfaces for AS routers')
     if links_type == "ma" or links_type == "intra_ma":
         add_to_tsv('ri_ma_ifs_dis', ri_ma_ifs_distribution.to_json(),
-                'Distribution of MA interfaces for AS routers')
+                   'Distribution of MA interfaces for AS routers')
         add_to_tsv('ri_tot_ifs_dis', ri_tot_ifs_distribution.to_json(),
-                'Distribution of all interfaces for AS routers')
+                   'Distribution of all interfaces for AS routers')
         add_to_tsv('ri_ma_neighs_dis', ri_ma_neighs_distribution.to_json(),
-                'Distribution of neighbors for MA interface for AS routers')
+                   'Distribution of neighbors for MA interface for AS routers')
     add_to_tsv('ri_tot_neighs_dis', ri_tot_neighs_distribution.to_json(),
                'Distribution of neighbors for AS routers')
 
@@ -793,33 +839,42 @@ def graph_statistics(G, lcc_only, links_type, min_lcc_cov, approx, no_output=Fal
                'Distribution of PP interfaces for non-AS routers')
     if links_type == "ma" or links_type == "intra_ma":
         add_to_tsv('re_ma_ifs_dis', re_ma_ifs_distribution.to_json(),
-                'Distribution of MA interfaces for non-AS routers')
+                   'Distribution of MA interfaces for non-AS routers')
         add_to_tsv('re_tot_ifs_dis', re_tot_ifs_distribution.to_json(),
-                'Distribution of all interfaces for non-AS routers')
+                   'Distribution of all interfaces for non-AS routers')
         add_to_tsv('re_ma_neighs_dis', re_ma_neighs_distribution.to_json(),
-                'Distribution of neighbors for MA interface for non-AS routers')
+                   'Distribution of neighbors for MA interface for non-AS routers')
     add_to_tsv('re_tot_neighs_dis', re_tot_neighs_distribution.to_json(),
                'Distribution of neighbors for non-AS routers')
     if links_type == "ma" or links_type == "intra_ma":
         add_to_tsv('sw_ifs_dis', sw_ifs_distribution.to_json(),
-                'Distribution of interfaces for switches')
-    
+                   'Distribution of interfaces for switches')
+
     ############################
 
     if not lcc_only:
         add_to_tsv('density', density, 'Graph density')
         add_to_tsv('assortativity', assortativity, 'Graph assortativity')
-        add_to_tsv('transitivity', transitivity, 'Graph transitivity, or global clustering coefficient')
+        add_to_tsv('transitivity', transitivity,
+                   'Graph transitivity, or global clustering coefficient')
     add_to_tsv('avg_coreness', avg_coreness, 'Average nodes coreness')
-    add_to_tsv('graph_coreness', graph_coreness, 'Graph coreness (max node coreness)')
-    add_to_tsv('core_order', core_order, 'Number of nodes in graph core (subgraph containing nodes with maximum coreness)')
-    add_to_tsv('density_lcc', density_lcc, 'Graph density of largest connected component')
-    add_to_tsv('assortativity_lcc', assortativity_lcc, 'Graph assortativity of largest connected component')
-    add_to_tsv('transitivity_lcc', transitivity_lcc, 'Graph transitivity, or global clustering coefficient of largest connected component')
-    add_to_tsv('avg_shortest_path_len', avg_shortest_path_len, 'Graph average shortest path length')
-    add_to_tsv('approx_avg_shortest_path_len', approx_avg_shortest_path_len, 'Graph approximated average shortest path length')
+    add_to_tsv('graph_coreness', graph_coreness,
+               'Graph coreness (max node coreness)')
+    add_to_tsv('core_order', core_order,
+               'Number of nodes in graph core (subgraph containing nodes with maximum coreness)')
+    add_to_tsv('density_lcc', density_lcc,
+               'Graph density of largest connected component')
+    add_to_tsv('assortativity_lcc', assortativity_lcc,
+               'Graph assortativity of largest connected component')
+    add_to_tsv('transitivity_lcc', transitivity_lcc,
+               'Graph transitivity, or global clustering coefficient of largest connected component')
+    add_to_tsv('avg_shortest_path_len', avg_shortest_path_len,
+               'Graph average shortest path length')
+    add_to_tsv('approx_avg_shortest_path_len', approx_avg_shortest_path_len,
+               'Graph approximated average shortest path length')
 
-    add_to_tsv('time_to_analyze', time.time()-start_time, 'Time needed to analyze the graph')
+    add_to_tsv('time_to_analyze', time.time()-start_time,
+               'Time needed to analyze the graph')
 
     # print (column_names)
     # print (data_tsv)
@@ -845,7 +900,7 @@ def batch_create_graph_from_file_and_analyze(as_number_list, output_tsv_filename
     if eval_conn_comp is true (default), the attribute 
     G.graph['largest_cc_size'] is added to G
     """
-    output_tsv_filepath = os.path.join(output_dir,output_tsv_filename)
+    output_tsv_filepath = os.path.join(output_dir, output_tsv_filename)
     col_names = col_details = []
     with open(output_tsv_filepath, 'a', encoding="utf8") as out_file:
         for as_number in as_number_list:
@@ -854,25 +909,29 @@ def batch_create_graph_from_file_and_analyze(as_number_list, output_tsv_filename
                 G = nx.DiGraph()
             else:
                 G = nx.Graph()
-            print('\n%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
-            print('AS NUMBER: {}'.format(as_number))
+            logging.info('\n%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
+            logging.info('AS NUMBER: {}'.format(as_number))
             create_graph_from_files(as_number, G, input_dir, links_type)
-            print("Graph built in {} seconds".format(time.time()-start_time))
+            logging.info("Graph built in {} seconds".format(time.time()-start_time))
             start_time = time.time()
             if eval_conn_comp:
                 G.graph['largest_cc_size'] = len(
                     max(nx.connected_components(G), key=len))
-            returned_stats = graph_statistics(G, lcc_only, links_type, min_lcc_cov, approx)
+            returned_stats = graph_statistics(
+                G, lcc_only, links_type, min_lcc_cov, approx)
             if len(returned_stats) == 3:
                 col_names, dat_tsv, col_details = returned_stats
-                print("Graph analyzed in {} seconds\nwriting to file...".format(time.time()-start_time))
+                logging.info("Graph analyzed in {} seconds\nwriting to file...".format(
+                    time.time()-start_time))
                 out_file.write(dat_tsv + '\n')
             else:
-                print("Graph not analyzed, {} seconds passed".format(time.time()-start_time))
+                logging.info("Graph not analyzed, {} seconds passed".format(
+                    time.time()-start_time))
     with open(file_col_names, 'w', encoding="utf8") as out_file:
         out_file.write(json.dumps(col_names) + '\n')
     with open(file_col_desc, 'w', encoding="utf8") as out_file:
         out_file.write(json.dumps(col_details) + '\n')
+
 
 def run_all(input_dir, output_dir, stats_dir, min_size, single_as, links_type, lcc_only, min_lcc_cov, approx):
     # get list of ASes to be analyzed
@@ -881,10 +940,13 @@ def run_all(input_dir, output_dir, stats_dir, min_size, single_as, links_type, l
     else:
         as_list = [single_as]
     start_time = time.time()
-    batch_create_graph_from_file_and_analyze(as_list, "analysis.tsv", "c_names.json", "c_desc.json", input_dir, links_type, output_dir, lcc_only, min_lcc_cov, approx)
+    batch_create_graph_from_file_and_analyze(as_list, "analysis.tsv", "c_names.json",
+                                             "c_desc.json", input_dir, links_type, output_dir, lcc_only, min_lcc_cov, approx)
     execution_time = time.time() - start_time
-    print("Total execution time: {}".format(execution_time))
+    logging.info("Total execution time: {}".format(execution_time))
+
 
 if __name__ == "__main__":
     input_dir, output_dir, stats_dir, min_size, single_as, links_type, lcc_only, min_lcc_cov, approx = parse()
-    run_all(input_dir, output_dir, stats_dir, min_size, single_as, links_type, lcc_only, min_lcc_cov, approx)
+    run_all(input_dir, output_dir, stats_dir, min_size,
+            single_as, links_type, lcc_only, min_lcc_cov, approx)
