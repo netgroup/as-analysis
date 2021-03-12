@@ -80,7 +80,7 @@ def step_calculator(min_size, max_size, max_cut, nodes_number):
         keep = nodes_number - cut
         logging.debug("nodes: {}, cut: {}, keep: {}".format(nodes_number, cut, keep))
     step = int(round(nodes_number / keep))
-    logging.debug("step: ", step)
+    logging.debug("step: {}".format(step))
     return step
 
 
