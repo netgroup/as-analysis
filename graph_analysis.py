@@ -23,11 +23,13 @@ rootLogger = logging.getLogger()
 rootLogger.setLevel(logging.DEBUG)
 fileHandler = logging.FileHandler("{0}/{1}.log".format(LOG_PATH, LOG_F_NAME))
 fileHandler.setFormatter(logFormatter)
-rootLogger.addHandler(fileHandler)
+# rootLogger.addHandler(fileHandler)
 
 consoleHandler = logging.StreamHandler()
 consoleHandler.setFormatter(logFormatter)
 rootLogger.addHandler(consoleHandler)
+
+rootLogger.addHandler(fileHandler)
 
 NODES_FILE_OUT = '_nodes.txt'
 LINKS_FILE_OUT_MA = '_links_ma.txt'
@@ -87,14 +89,17 @@ def step_calculator(min_size, max_size, max_cut, nodes_number):
 def approx_aspl(G, min_size=1e04, max_size=3e06, max_cut=0.99):
     nodes_number = G.graph["largest_cc_size"]
     if nodes_number < min_size:
-        return nx.average_shortest_path_length(G)
+        # return nx.average_shortest_path_length(G)
+        use_all = True
+    else:
+        use_all = False
     step = step_calculator(min_size, max_size, max_cut, nodes_number)
     state = "source"
     source_nodes_number = 0
     tot_paths_len = 0
     nodes = iter(G.nodes)
     for node in nodes:
-        if state == "source":
+        if state == "source" or use_all:
             source_nodes_number = source_nodes_number + 1
             paths = nx.single_source_shortest_path_length(G, node)
             avg_path_len = sum(paths.values()) / len(paths)
@@ -110,9 +115,7 @@ def approx_aspl(G, min_size=1e04, max_size=3e06, max_cut=0.99):
 def read_as_list(stats_dir, min_size):
     min_size = int(min_size)
     # select all as with the desired size in terms of number of nodes
-    #TODO
-    # as_count_file = os.path.join(stats_dir, "as_count.csv")
-    as_count_file = os.path.join(stats_dir, "as_count2.csv")
+    as_count_file = os.path.join(stats_dir, "as_count.csv")
     as_df = pd.read_csv(as_count_file).applymap(int)
     for i, row in as_df.iterrows():
         if row["nodes_count"] < min_size:
@@ -601,6 +604,10 @@ def graph_statistics(G, lcc_only, links_type, min_lcc_cov, approx, no_output=Fal
     largest_cc = max(nx.connected_components(G), key=len)
     G_lcc = G.subgraph(largest_cc)
 
+    lcc_nodes = len(G_lcc.nodes)
+
+    logging.info("nodes in LCC: {}".format(lcc_nodes))
+
     logging.info("LCC extracted at {} seconds".format(time.time()-start_time))
 
     if not lcc_only:
@@ -637,7 +644,11 @@ def graph_statistics(G, lcc_only, links_type, min_lcc_cov, approx, no_output=Fal
         logging.info("avg shortest path length of LCC calculated at {} seconds".format(
             time.time()-start_time))
     else:
-        avg_shortest_path_len = nx.average_shortest_path_length(G_lcc)
+        #TODO define numbers somewhere else
+        if lcc_nodes < 11000 and lcc_nodes > 10000:
+            avg_shortest_path_len = nx.average_shortest_path_length(G_lcc)
+        else:
+            avg_shortest_path_len = -1
         logging.info("avg shortest path length of LCC calculated at {} seconds".format(
             time.time()-start_time))
         approx_avg_shortest_path_len = approx_aspl(G_lcc)
@@ -937,6 +948,7 @@ def batch_create_graph_from_file_and_analyze(as_number_list, output_tsv_filename
 def batch_create_graph_from_file_and_analyze_parall(as_number):
     fileHandler = logging.FileHandler("{0}/{1}.log".format(LOG_PATH, str(os.getpid()) + "_" + LOG_F_NAME))
     fileHandler.setFormatter(logFormatter)
+    rootLogger.handlers.pop()
     rootLogger.addHandler(fileHandler)
 
     eval_conn_comp=True

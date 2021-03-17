@@ -149,14 +149,14 @@ def run_all(input_dir, output_dir, stats_dir, min_size, single_as):
     for as_number in as_list:
         print("extracting nodes from AS {}...".format(as_number))
         as_nodes = extract_as_nodes(as_number, input_dir, output_dir)
-        print("extracting ma links...")
-        extract_as_links_ma(as_nodes, as_number, input_dir, output_dir)
+        # print("extracting ma links...")
+        # extract_as_links_ma(as_nodes, as_number, input_dir, output_dir)
         print("extracting fm links...")
         extract_as_links_fm(as_nodes, as_number, input_dir, output_dir)
-        print("extracting ma intra links...")
-        extract_as_links_intra_ma(as_nodes, as_number, input_dir, output_dir)
-        print("extracting fm intra links...")
-        extract_as_links_intra_fm(as_nodes, as_number, input_dir, output_dir)
+        # print("extracting ma intra links...")
+        # extract_as_links_intra_ma(as_nodes, as_number, input_dir, output_dir)
+        # print("extracting fm intra links...")
+        # extract_as_links_intra_fm(as_nodes, as_number, input_dir, output_dir)
     print("extraction complete!")
 
 
