@@ -12,6 +12,7 @@ import csv
 import math
 import time
 import logging
+from multiprocessing import Pool
 
 LOG_PATH = 'logs'
 LOG_F_NAME = 'graph_analysis_log'
@@ -55,13 +56,12 @@ def parse():
                         help="link types: ma fm intra_ma intra_fm", choices=["ma", "fm", "intra_ma", "intra_fm"])
     parser.add_argument("--minlcc", metavar="min_lcc_coverage", default="0.9",
                         help="minimum LCC coverage of the AS for being analyzed")
-    # TODO ############
-    parser.add_argument("--lcc", action='store_true', help="only analyze LCC")
-    parser.add_argument("--approx", action="store_true",
-                        help="approximate results for average shortest path length (use for large topologies)")
-    ###################
+    parser.add_argument("--whole", action='store_false', help="analyze not only LCC")
+    parser.add_argument("--noapprox", action="store_false",
+                        help="do not approximate results for average shortest path length (use for large topologies)")
+    parser.add_argument("--parallelize", action='store_true', help="parallelize analysis over multiple CPUs")
     args = parser.parse_args()
-    return args.i, args.o, args.s, args.size, args.singleas, args.links, args.lcc, args.minlcc, args.approx
+    return args.i, args.o, args.s, args.size, args.singleas, args.links, args.whole, args.minlcc, args.noapprox, args.parallelize
 
 
 def compute_approx_function(min_size, max_size, max_cut):
@@ -110,7 +110,9 @@ def approx_aspl(G, min_size=1e04, max_size=3e06, max_cut=0.99):
 def read_as_list(stats_dir, min_size):
     min_size = int(min_size)
     # select all as with the desired size in terms of number of nodes
-    as_count_file = os.path.join(stats_dir, "as_count.csv")
+    #TODO
+    # as_count_file = os.path.join(stats_dir, "as_count.csv")
+    as_count_file = os.path.join(stats_dir, "as_count2.csv")
     as_df = pd.read_csv(as_count_file).applymap(int)
     for i, row in as_df.iterrows():
         if row["nodes_count"] < min_size:
@@ -932,6 +934,48 @@ def batch_create_graph_from_file_and_analyze(as_number_list, output_tsv_filename
     with open(file_col_desc, 'w', encoding="utf8") as out_file:
         out_file.write(json.dumps(col_details) + '\n')
 
+def batch_create_graph_from_file_and_analyze_parall(as_number):
+    fileHandler = logging.FileHandler("{0}/{1}.log".format(LOG_PATH, str(os.getpid()) + "_" + LOG_F_NAME))
+    fileHandler.setFormatter(logFormatter)
+    rootLogger.addHandler(fileHandler)
+
+    eval_conn_comp=True
+    Directed=False
+    output_tsv_filename = "analysis.tsv"
+    file_col_names = "c_names.json"
+    file_col_desc = "c_desc.json"
+    input_dir, output_dir, stats_dir, min_size, single_as, links_type, lcc_only, min_lcc_cov, approx, parall = parse()
+    output_tsv_filepath = os.path.join(output_dir, str(os.getpid()) + "_" + output_tsv_filename)
+    col_names = col_details = []
+    with open(output_tsv_filepath, 'a', encoding="utf8") as out_file:
+        start_time = time.time()
+        if Directed:
+            G = nx.DiGraph()
+        else:
+            G = nx.Graph()
+        logging.info('\n%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
+        logging.info('AS NUMBER: {}'.format(as_number))
+        create_graph_from_files(as_number, G, input_dir, links_type)
+        logging.info("Graph built in {} seconds".format(time.time()-start_time))
+        start_time = time.time()
+        if eval_conn_comp:
+            G.graph['largest_cc_size'] = len(
+                max(nx.connected_components(G), key=len))
+        returned_stats = graph_statistics(
+            G, lcc_only, links_type, min_lcc_cov, approx)
+        if len(returned_stats) == 3:
+            col_names, dat_tsv, col_details = returned_stats
+            logging.info("Graph analyzed in {} seconds\nwriting to file...".format(
+                time.time()-start_time))
+            out_file.write(dat_tsv + '\n')
+        else:
+            logging.info("Graph not analyzed, {} seconds passed".format(
+                time.time()-start_time))
+    with open(file_col_names, 'w', encoding="utf8") as out_file:
+        out_file.write(json.dumps(col_names) + '\n')
+    with open(file_col_desc, 'w', encoding="utf8") as out_file:
+        out_file.write(json.dumps(col_details) + '\n')
+
 
 def run_all(input_dir, output_dir, stats_dir, min_size, single_as, links_type, lcc_only, min_lcc_cov, approx):
     # get list of ASes to be analyzed
@@ -945,8 +989,18 @@ def run_all(input_dir, output_dir, stats_dir, min_size, single_as, links_type, l
     execution_time = time.time() - start_time
     logging.info("Total execution time: {}".format(execution_time))
 
+def run_all_parall(stats_dir, min_size):
+    as_list = read_as_list(stats_dir, min_size)
+    start_time = time.time()
+    with Pool() as p:
+        p.map(batch_create_graph_from_file_and_analyze_parall, as_list)
+    execution_time = time.time() - start_time
+    logging.info("Total execution time: {}".format(execution_time))
 
 if __name__ == "__main__":
-    input_dir, output_dir, stats_dir, min_size, single_as, links_type, lcc_only, min_lcc_cov, approx = parse()
-    run_all(input_dir, output_dir, stats_dir, min_size,
-            single_as, links_type, lcc_only, min_lcc_cov, approx)
+    input_dir, output_dir, stats_dir, min_size, single_as, links_type, lcc_only, min_lcc_cov, approx, parall = parse()
+    if parall and not single_as:
+        run_all_parall(stats_dir, min_size)
+    else:
+        run_all(input_dir, output_dir, stats_dir, min_size,
+                single_as, links_type, lcc_only, min_lcc_cov, approx)
