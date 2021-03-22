@@ -590,71 +590,77 @@ def graph_statistics(G, lcc_only, links_type, min_lcc_cov, approx, no_output=Fal
     if lcc_cov < float(min_lcc_cov):
         logging.info("LCC coverage is: {}\nlower than minimum desired: {}\nAS not analyzed".format(
             lcc_cov, min_lcc_cov))
-        return []
-
-    # clusterize leaf nodes
-
-    dis_leaf_aggr_type, dis_leaf_aggr_leaf1_num = clusterize_leaf_nodes(G)
-    leaf_agg_count = dis_leaf_aggr_type.count()
-
-    logging.info("leaf nodes clusterizing completed at {} seconds".format(
-        time.time()-start_time))
-
-    # more graph stats with LCC
-    largest_cc = max(nx.connected_components(G), key=len)
-    G_lcc = G.subgraph(largest_cc)
-
-    lcc_nodes = len(G_lcc.nodes)
-
-    logging.info("nodes in LCC: {}".format(lcc_nodes))
-
-    logging.info("LCC extracted at {} seconds".format(time.time()-start_time))
-
-    if not lcc_only:
-        density = nx.density(G)
-        logging.info("density calculated at {} seconds".format(time.time()-start_time))
-        assortativity = nx.degree_pearson_correlation_coefficient(
-            G)    # faster assortativity algorithm
-        logging.info("assortativity calculated at {} seconds".format(
-            time.time()-start_time))
-        transitivity = nx.transitivity(G)   # global clustering coeff
-        logging.info("transitivity calculated at {} seconds".format(
-            time.time()-start_time))
-
-    # largest connected component
-    core_number = nx.core_number(G_lcc)
-    avg_coreness = sum(core_number.values()) / len(core_number)
-    graph_coreness = 0
-    graph_coreness = max([c for c in core_number.values()])
-    core_order = 0
-    for coreness in core_number.values():
-        if coreness == graph_coreness:
-            core_order = core_order + 1
-    logging.info("coreness stats calculated at {} seconds".format(time.time()-start_time))
-    density_lcc = nx.density(G_lcc)
-    logging.info("density of LCC calculated at {} seconds".format(time.time()-start_time))
-    assortativity_lcc = nx.degree_pearson_correlation_coefficient(G_lcc)
-    logging.info("assortativity of LCC calculated at {} seconds".format(
-        time.time()-start_time))
-    transitivity_lcc = nx.transitivity(G_lcc)
-    logging.info("transitivity of LCC calculated at {} seconds".format(
-        time.time()-start_time))
-    if approx == False:
-        avg_shortest_path_len = nx.average_shortest_path_length(G_lcc)
-        logging.info("avg shortest path length of LCC calculated at {} seconds".format(
-            time.time()-start_time))
+        # assign 'N/A' to values not analyzed
+        density = assortativity = transitivity = avg_coreness = graph_coreness = core_order = density_lcc = assortativity_lcc = transitivity_lcc = avg_shortest_path_len = approx_avg_shortest_path_len = 'N/A'
+        analyze = False
+        # return []
     else:
-        #TODO define numbers somewhere else
-        if lcc_nodes < 11000 and lcc_nodes > 10000:
+        analyze = True
+
+        # clusterize leaf nodes
+
+        dis_leaf_aggr_type, dis_leaf_aggr_leaf1_num = clusterize_leaf_nodes(G)
+        leaf_agg_count = dis_leaf_aggr_type.count()
+
+        logging.info("leaf nodes clusterizing completed at {} seconds".format(
+            time.time()-start_time))
+
+        # more graph stats with LCC
+        largest_cc = max(nx.connected_components(G), key=len)
+        G_lcc = G.subgraph(largest_cc)
+
+        lcc_nodes = len(G_lcc.nodes)
+
+        logging.info("nodes in LCC: {}".format(lcc_nodes))
+
+        logging.info("LCC extracted at {} seconds".format(time.time()-start_time))
+
+        if not lcc_only:
+            density = nx.density(G)
+            logging.info("density calculated at {} seconds".format(time.time()-start_time))
+            assortativity = nx.degree_pearson_correlation_coefficient(
+                G)    # faster assortativity algorithm
+            logging.info("assortativity calculated at {} seconds".format(
+                time.time()-start_time))
+            transitivity = nx.transitivity(G)   # global clustering coeff
+            logging.info("transitivity calculated at {} seconds".format(
+                time.time()-start_time))
+
+        # largest connected component
+        core_number = nx.core_number(G_lcc)
+        avg_coreness = sum(core_number.values()) / len(core_number)
+        graph_coreness = 0
+        graph_coreness = max([c for c in core_number.values()])
+        core_order = 0
+        for coreness in core_number.values():
+            if coreness == graph_coreness:
+                core_order = core_order + 1
+        logging.info("coreness stats calculated at {} seconds".format(time.time()-start_time))
+        density_lcc = nx.density(G_lcc)
+        logging.info("density of LCC calculated at {} seconds".format(time.time()-start_time))
+        assortativity_lcc = nx.degree_pearson_correlation_coefficient(G_lcc)
+        logging.info("assortativity of LCC calculated at {} seconds".format(
+            time.time()-start_time))
+        transitivity_lcc = nx.transitivity(G_lcc)
+        logging.info("transitivity of LCC calculated at {} seconds".format(
+            time.time()-start_time))
+        if approx == False:
             avg_shortest_path_len = nx.average_shortest_path_length(G_lcc)
+            approx_avg_shortest_path_len = 'N/A'
+            logging.info("avg shortest path length of LCC calculated at {} seconds".format(
+                time.time()-start_time))
         else:
-            avg_shortest_path_len = -1
-        logging.info("avg shortest path length of LCC calculated at {} seconds".format(
-            time.time()-start_time))
-        approx_avg_shortest_path_len = approx_aspl(G_lcc)
-        logging.info("approximated avg shortest path length of LCC calculated at {} seconds".format(
-            time.time()-start_time))
-    # max_degree = max([d for n, d in G.degree()])
+            #TODO define numbers somewhere else
+            if lcc_nodes < 11000 and lcc_nodes > 10000:
+                avg_shortest_path_len = nx.average_shortest_path_length(G_lcc)
+            else:
+                avg_shortest_path_len = 'N/A'
+            logging.info("avg shortest path length of LCC calculated at {} seconds".format(
+                time.time()-start_time))
+            approx_avg_shortest_path_len = approx_aspl(G_lcc)
+            logging.info("approximated avg shortest path length of LCC calculated at {} seconds".format(
+                time.time()-start_time))
+        # max_degree = max([d for n, d in G.degree()])
 
     if no_output:
         return
@@ -755,11 +761,18 @@ def graph_statistics(G, lcc_only, links_type, min_lcc_cov, approx, no_output=Fal
                        'Max of neighbors for AS routers'),
                       ('ri_tot_tot_neighs', ri_tot_neighs, 'Total neighbors for AS routers')])
 
-    m_add_to_tsv([('ri_leaf1_aggr', leaf_agg_count, 'Leaf1 aggregator internal routers'),
-                  ('avg_leaf1_per_leaf1_aggr', dis_leaf_aggr_leaf1_num.mean(),
-                   'Mean of leaf1 node per leaf1 aggregator AS router'),
-                  ('max_leaf1_per_leaf1_aggr', dis_leaf_aggr_leaf1_num.maxval(),
-                   'Max of leaf1 node per leaf1 aggregator AS router')])
+    if analyze:
+        m_add_to_tsv([('ri_leaf1_aggr', leaf_agg_count, 'Leaf1 aggregator internal routers'),
+                    ('avg_leaf1_per_leaf1_aggr', dis_leaf_aggr_leaf1_num.mean(),
+                    'Mean of leaf1 node per leaf1 aggregator AS router'),
+                    ('max_leaf1_per_leaf1_aggr', dis_leaf_aggr_leaf1_num.maxval(),
+                    'Max of leaf1 node per leaf1 aggregator AS router')])
+    else:
+        m_add_to_tsv([('ri_leaf1_aggr', 'N/A', 'Leaf1 aggregator internal routers'),
+                    ('avg_leaf1_per_leaf1_aggr', 'N/A',
+                    'Mean of leaf1 node per leaf1 aggregator AS router'),
+                    ('max_leaf1_per_leaf1_aggr', 'N/A',
+                    'Max of leaf1 node per leaf1 aggregator AS router')])
 
     if re_count != 0:
         m_add_to_tsv([('re_avg_pp_ifs', f3(re_pp_ifs / re_count), 'Average of PP interfaces for non-AS routers'),
@@ -843,10 +856,16 @@ def graph_statistics(G, lcc_only, links_type, min_lcc_cov, approx, no_output=Fal
     add_to_tsv('ri_tot_neighs_dis', ri_tot_neighs_distribution.to_json(),
                'Distribution of neighbors for AS routers')
 
-    add_to_tsv('dis_leaf1_aggr_type', dis_leaf_aggr_type.to_json(),
-               'Distribution of types for leaf1 aggregator AS routers')
-    add_to_tsv('dis_leaf_aggr_leaf1_num', dis_leaf_aggr_leaf1_num.to_json(
-    ), 'Distribution of leaf1 number for leaf1 aggretator AS routers')
+    if analyze:
+        add_to_tsv('dis_leaf1_aggr_type', dis_leaf_aggr_type.to_json(),
+                'Distribution of types for leaf1 aggregator AS routers')
+        add_to_tsv('dis_leaf_aggr_leaf1_num', dis_leaf_aggr_leaf1_num.to_json(
+        ), 'Distribution of leaf1 number for leaf1 aggretator AS routers')
+    else:
+        add_to_tsv('dis_leaf1_aggr_type', 'N/A',
+                'Distribution of types for leaf1 aggregator AS routers')
+        add_to_tsv('dis_leaf_aggr_leaf1_num', 'N/A',
+                'Distribution of leaf1 number for leaf1 aggretator AS routers')
 
     add_to_tsv('re_pp_ifs_dis', re_pp_ifs_distribution.to_json(),
                'Distribution of PP interfaces for non-AS routers')
