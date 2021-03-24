@@ -10,7 +10,7 @@ with open(COLUMNS) as json_file:
   column_names = json.load(json_file)
 files_list = os.listdir(ANALYSIS_DIR)
 for elem in files_list:
-    if elem[0] == '.' or elem[0] == 'a' or elem[0] == '3':
+    if elem[0] == '.' or elem[0] == 'a':
         continue
     file_path = os.path.join(ANALYSIS_DIR, elem)
     df = pd.read_csv(file_path, delimiter="\t", names=column_names)
