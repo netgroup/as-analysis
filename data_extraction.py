@@ -14,6 +14,8 @@ LINKS_FILE_OUT_MA = '_links_ma.txt'
 LINKS_FILE_OUT_FM = '_links_fm.csv'
 LINKS_FILE_OUT_INTRA_MA = '_links_intra_ma.txt'
 LINKS_FILE_OUT_INTRA_FM = '_links_intra_fm.csv'
+RANK_FILE = "rank_ordered.csv"
+RANK_FILE_OUT = "_nodes_rank.csv"
 
 
 def parse():
@@ -28,8 +30,10 @@ def parse():
                         help="minimum size of ASes to be considered")
     parser.add_argument("--singleas", metavar="single_as",
                         help="AS number of single as to be considered")
+    parser.add_argument("--rankdir", metavar="nodes_rank_dir",
+                        help="directory containing rank files, when not given ranks are not considered")
     args = parser.parse_args()
-    return args.i, args.o, args.s, args.size, args.singleas
+    return args.i, args.o, args.s, args.size, args.singleas, args.rankdir
 
 
 def read_as_list(stats_dir, min_size):
@@ -138,8 +142,21 @@ def extract_as_links_intra_fm(set_of_as_nodes, as_number, input_dir, output_dir,
                 if line[1] in set_of_as_nodes and line[2] in set_of_as_nodes:
                     writer.writerow(line)
 
+def extract_ranks(set_of_as_nodes, as_number, rank_dir, output_dir, rank_file=RANK_FILE):
+    file_path = os.path.join(rank_dir, rank_file)
+    with open(file_path, 'r', encoding="utf8") as myfile:
+        file_path_out = os.path.join(output_dir, as_number + RANK_FILE_OUT)
+        with open(file_path_out, 'w', encoding="utf8") as out_file:
+            reader = csv.reader(myfile)
+            writer = csv.writer(out_file)
+            header = next(reader, None)
+            writer.writerow(header)
+            for line in reader:
+                if line[0] in set_of_as_nodes:
+                    writer.writerow(line)
 
-def run_all(input_dir, output_dir, stats_dir, min_size, single_as):
+
+def run_all(input_dir, output_dir, stats_dir, min_size, single_as, rank_dir):
     # get list of ASes to be extracted
     if single_as is None:
         as_list = read_as_list(stats_dir, min_size)
@@ -151,15 +168,18 @@ def run_all(input_dir, output_dir, stats_dir, min_size, single_as):
         as_nodes = extract_as_nodes(as_number, input_dir, output_dir)
         # print("extracting ma links...")
         # extract_as_links_ma(as_nodes, as_number, input_dir, output_dir)
-        print("extracting fm links...")
-        extract_as_links_fm(as_nodes, as_number, input_dir, output_dir)
+        # print("extracting fm links...")
+        # extract_as_links_fm(as_nodes, as_number, input_dir, output_dir)
         # print("extracting ma intra links...")
         # extract_as_links_intra_ma(as_nodes, as_number, input_dir, output_dir)
         # print("extracting fm intra links...")
         # extract_as_links_intra_fm(as_nodes, as_number, input_dir, output_dir)
+        if rank_dir:
+            print("extracting nodes ranks...")
+            extract_ranks(as_nodes, as_number, rank_dir, output_dir)
     print("extraction complete!")
 
 
 if __name__ == "__main__":
-    input_dir, output_dir, stats_dir, min_size, single_as = parse()
-    run_all(input_dir, output_dir, stats_dir, min_size, single_as)
+    input_dir, output_dir, stats_dir, min_size, single_as, rank_dir = parse()
+    run_all(input_dir, output_dir, stats_dir, min_size, single_as, rank_dir)
