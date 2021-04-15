@@ -9,6 +9,7 @@ networkx = "*"
 scipy = "*"
 matplotlib = "*"
 powerlaw = "*"
+seaborn = "*"
 
 [dev-packages]
 pylint = "*"

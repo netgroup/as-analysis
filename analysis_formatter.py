@@ -4,7 +4,7 @@ import json
 
 ANALYSIS_DIR = "analysis_2020_08"
 COLUMNS = "c_names.json"
-OUT_FILE = "analysis2.tsv"
+OUT_FILE = "analysis.tsv"
 
 with open(COLUMNS) as json_file:
   column_names = json.load(json_file)
