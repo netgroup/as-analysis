@@ -1,6 +1,7 @@
 import pandas as pd
 import json
 from itertools import islice
+import matplotlib.pyplot as plt
 
 RATIO = 0.7
 MIN_SIZE = 1000
@@ -54,6 +55,7 @@ for as_num, data in geo_all_dict.items():
         geo_dict[as_num] = "AN"
         continent_count["AN"] += 1
     else:
+        geo_dict[as_num] = "MANY"
         continent_count["MANY"] += 1
 
 
@@ -97,8 +99,27 @@ ratio_dict = dict()
 for as_number, data in sorted_geo_all_dict.items():
     tot = data["tot_nodes_count"]
     ratio_dict[as_number] = max(data["NA_nodes_count"], data["SA_nodes_count"], data["EU_nodes_count"], data["AF_nodes_count"], data["AS_nodes_count"], data["OC_nodes_count"], data["AN_nodes_count"]) / tot
-# print(ratio_dict)
+ratio_df = pd.DataFrame.from_dict(ratio_dict, orient="index")
+print(ratio_df)
+# ratio_df = ratio_df.reset_index()
+ratio_df.plot(ls="", marker = ".", markersize=5, alpha=0.3)
+plt.savefig("continents_ratios_scatter.png", dpi=300)
 
+ratio_dict_node_num = dict()
+for as_number, data in sorted_geo_all_dict.items():
+    tot = data["tot_nodes_count"]
+    ratio_dict_node_num[as_number] = [
+        max(data["NA_nodes_count"], data["SA_nodes_count"], data["EU_nodes_count"], data["AF_nodes_count"], data["AS_nodes_count"], data["OC_nodes_count"], data["AN_nodes_count"]) / tot,
+        tot
+    ]
+ratio_node_num_df = pd.DataFrame.from_dict(ratio_dict_node_num, orient="index")
+print(ratio_node_num_df)
+ratio_node_num_df.plot(ls="", marker = ".", markersize=5, x=1, alpha=0.3)
+# plt.yscale("log")
+plt.xscale("log")
+plt.savefig("continents_ratios_scatter_node_num.png", dpi=300)
+
+# analyze chunks
 chunks_data = dict()
 i = 0
 for chunk in chunks(ratio_dict, 30):
@@ -112,7 +133,24 @@ for chunk in chunks(ratio_dict, 30):
     }
     i += 1
 
+# keys = chunks_data.keys()
+# heigth = []
+# for chunk in chunks_data.values():
+#     heigth.append(chunk["multi_continent_AS_count"])
+
+# plt.figure(2)
+# plt.bar(keys, heigth)
+# plt.savefig("geo_chunks.png", dpi=300)
+
 chunks_df = pd.DataFrame.from_dict(chunks_data, orient="index")
 with open("stats/geo_chunks.csv", "w", encoding="utf8") as out_file:
     chunks_df.to_csv(out_file)
 print(chunks_df)
+
+ax = chunks_df.plot(secondary_y='largest_AS_nodes_count')
+plt.yscale("log")
+# ax2 = ax.twinx()
+
+# ax2.set_yscale('log')
+
+plt.savefig("geo_chunks.png", dpi=300)

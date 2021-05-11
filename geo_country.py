@@ -73,10 +73,10 @@ with open(file_path_as, 'r', encoding="utf8") as as_file:
                 matches = matches + 1
                 if country != "":
                     # add 1 to country
-                    if country+"_nodes_count" in as_geo[as_number]:
-                        as_geo[as_number][country+"_nodes_count"] = as_geo[as_number][country+"_nodes_count"] + 1
+                    if country in as_geo[as_number]:
+                        as_geo[as_number][country] = as_geo[as_number][country] + 1
                     else:
-                        as_geo[as_number][country+"_nodes_count"] = 1
+                        as_geo[as_number][country] = 1
                 else:
                     no_country = no_country + 1
                 geo_line = next(reader_geo, None)
