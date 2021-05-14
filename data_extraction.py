@@ -5,6 +5,7 @@ import pandas as pd
 import argparse
 import os
 import csv
+from multiprocessing import Pool
 
 AS_NODES_FILE = "nodes_as.csv"
 LINKS_FILE_MA = "links_ma.txt"
@@ -163,6 +164,12 @@ def extract_ranks(set_of_as_nodes, as_number, rank_dir, output_dir, rank_file=RA
                 if line[0] in set_of_as_nodes:
                     writer.writerow(line)
 
+def extract_as(as_number):
+    input_dir, output_dir, stats_dir, min_size, single_as, rank_dir, max_size = parse()
+    print("extracting nodes from AS {}...".format(as_number))
+    as_nodes = extract_as_nodes(as_number, input_dir, output_dir)
+    print("extracting fm links...")
+    extract_as_links_fm(as_nodes, as_number, input_dir, output_dir)
 
 def run_all(input_dir, output_dir, stats_dir, min_size, single_as, rank_dir, max_size):
     # get list of ASes to be extracted
@@ -187,7 +194,14 @@ def run_all(input_dir, output_dir, stats_dir, min_size, single_as, rank_dir, max
             extract_ranks(as_nodes, as_number, rank_dir, output_dir)
     print("extraction complete!")
 
+def run_all_parall(stats_dir, min_size, max_size):
+    as_list = read_as_list(stats_dir, min_size, max_size)
+    with Pool() as p:
+        p.map(extract_as, as_list)
+    print("extraction complete!")
+
 
 if __name__ == "__main__":
     input_dir, output_dir, stats_dir, min_size, single_as, rank_dir, max_size = parse()
-    run_all(input_dir, output_dir, stats_dir, min_size, single_as, rank_dir, max_size)
+    # run_all(input_dir, output_dir, stats_dir, min_size, single_as, rank_dir, max_size)
+    run_all_parall(stats_dir, min_size, max_size)
