@@ -27,23 +27,31 @@ def parse():
     parser.add_argument("-s", metavar="stats_dir",
                         default="stats", help="input dir to read statistics")
     parser.add_argument("--size", metavar="as_size", default="1000",
+                        help="maximum size of ASes to be considered")
+    parser.add_argument("--max-size", metavar="max_size", default="10000000",
                         help="minimum size of ASes to be considered")
     parser.add_argument("--singleas", metavar="single_as",
                         help="AS number of single as to be considered")
     parser.add_argument("--rankdir", metavar="nodes_rank_dir",
                         help="directory containing rank files, when not given ranks are not considered")
     args = parser.parse_args()
-    return args.i, args.o, args.s, args.size, args.singleas, args.rankdir
+    return args.i, args.o, args.s, args.size, args.singleas, args.rankdir, args.max_size
 
 
-def read_as_list(stats_dir, min_size):
+def read_as_list(stats_dir, min_size, max_size):
     min_size = int(min_size)
-    # select all as with the desired size in terms of number of nodes
+    max_size = int(max_size)
+    # select all as with the desired min size in terms of number of nodes
     as_count_file = os.path.join(stats_dir, "as_count.csv")
     as_df = pd.read_csv(as_count_file).applymap(int)
     for i, row in as_df.iterrows():
         if row["nodes_count"] < min_size:
             as_df = as_df[:i]
+            break
+    # select all as with the desired max size in terms of number of nodes
+    for i, row in as_df.iterrows():
+        if row["nodes_count"] < max_size:
+            as_df = as_df[i:]
             break
     # smallest as first in list
     as_list = as_df["AS_number"].iloc[::-1].tolist()
@@ -156,10 +164,10 @@ def extract_ranks(set_of_as_nodes, as_number, rank_dir, output_dir, rank_file=RA
                     writer.writerow(line)
 
 
-def run_all(input_dir, output_dir, stats_dir, min_size, single_as, rank_dir):
+def run_all(input_dir, output_dir, stats_dir, min_size, single_as, rank_dir, max_size):
     # get list of ASes to be extracted
     if single_as is None:
-        as_list = read_as_list(stats_dir, min_size)
+        as_list = read_as_list(stats_dir, min_size, max_size)
     else:
         as_list = [single_as]
     # extract nodes and links for every AS
@@ -181,5 +189,5 @@ def run_all(input_dir, output_dir, stats_dir, min_size, single_as, rank_dir):
 
 
 if __name__ == "__main__":
-    input_dir, output_dir, stats_dir, min_size, single_as, rank_dir = parse()
-    run_all(input_dir, output_dir, stats_dir, min_size, single_as, rank_dir)
+    input_dir, output_dir, stats_dir, min_size, single_as, rank_dir, max_size = parse()
+    run_all(input_dir, output_dir, stats_dir, min_size, single_as, rank_dir, max_size)
