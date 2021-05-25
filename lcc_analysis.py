@@ -50,8 +50,10 @@ def parse():
                         help="output dir to write analysis output")
     parser.add_argument("-s", metavar="stats_dir",
                         default="stats", help="input dir to read statistics")
-    parser.add_argument("--size", metavar="as_size", default="50",
+    parser.add_argument("--size", metavar="as_size", default="20",
                         help="minimum size of ASes to be considered")
+    parser.add_argument("--max-size", metavar="max_size", default="10000000",
+                        help="maximum size of ASes to be considered")
     parser.add_argument("--singleas", metavar="single_as",
                         help="AS number of single as to be considered")
     parser.add_argument("--links", metavar="links_type", default="fm",
@@ -63,7 +65,7 @@ def parse():
                         help="do not approximate results for average shortest path length (use for large topologies)")
     parser.add_argument("--parallelize", action='store_true', help="parallelize analysis over multiple CPUs")
     args = parser.parse_args()
-    return args.i, args.o, args.s, args.size, args.singleas, args.links, args.whole, args.minlcc, args.noapprox, args.parallelize
+    return args.i, args.o, args.s, args.size, args.singleas, args.links, args.whole, args.minlcc, args.noapprox, args.parallelize, args.max_size
 
 
 def compute_approx_function(min_size, max_size, max_cut):
@@ -112,22 +114,23 @@ def approx_aspl(G, min_size=1e04, max_size=3e06, max_cut=0.99):
     return tot_paths_len / source_nodes_number
 
 
-def read_as_list(stats_dir, min_size):
+def read_as_list(stats_dir, min_size, max_size):
     min_size = int(min_size)
-    # select all as with the desired size in terms of number of nodes
+    max_size = int(max_size)
+    # select all as with the desired min size in terms of number of nodes
     as_count_file = os.path.join(stats_dir, "as_count.csv")
     as_df = pd.read_csv(as_count_file).applymap(int)
     for i, row in as_df.iterrows():
         if row["nodes_count"] < min_size:
             as_df = as_df[:i]
             break
+    # select all as with the desired max size in terms of number of nodes
+    for i, row in as_df.iterrows():
+        if row["nodes_count"] < max_size:
+            as_df = as_df[i:]
+            break
     # smallest as first in list
     as_list = as_df["AS_number"].iloc[::-1].tolist()
-    # remove larger ASs
-    for i, row in as_df.iterrows():
-        if row["nodes_count"] > 999:
-            as_df = as_df[:i]
-            break
     as_list[:] = list(map(str, as_list))
     return as_list
 
@@ -515,7 +518,7 @@ def batch_create_graph_from_file_and_analyze_parall(as_number):
     output_tsv_filename = "analysis.tsv"
     file_col_names = "c_names.json"
     file_col_desc = "c_desc.json"
-    input_dir, output_dir, stats_dir, min_size, single_as, links_type, lcc_only, min_lcc_cov, approx, parall = parse()
+    input_dir, output_dir, stats_dir, min_size, single_as, links_type, lcc_only, min_lcc_cov, approx, parall, max_size = parse()
     output_tsv_filepath = os.path.join(output_dir, str(os.getpid()) + "_" + output_tsv_filename)
     col_names = col_details = []
     with open(output_tsv_filepath, 'a', encoding="utf8") as out_file:
@@ -548,10 +551,10 @@ def batch_create_graph_from_file_and_analyze_parall(as_number):
         out_file.write(json.dumps(col_details) + '\n')
 
 
-def run_all(input_dir, output_dir, stats_dir, min_size, single_as, links_type, lcc_only, min_lcc_cov, approx):
+def run_all(input_dir, output_dir, stats_dir, min_size, single_as, links_type, lcc_only, min_lcc_cov, approx, max_size):
     # get list of ASes to be analyzed
     if single_as is None:
-        as_list = read_as_list(stats_dir, min_size)
+        as_list = read_as_list(stats_dir, min_size, max_size)
     else:
         as_list = [single_as]
     start_time = time.time()
@@ -560,8 +563,8 @@ def run_all(input_dir, output_dir, stats_dir, min_size, single_as, links_type, l
     execution_time = time.time() - start_time
     logging.info("Total execution time: {}".format(execution_time))
 
-def run_all_parall(stats_dir, min_size):
-    as_list = read_as_list(stats_dir, min_size)
+def run_all_parall(stats_dir, min_size, max_size):
+    as_list = read_as_list(stats_dir, min_size, max_size)
     start_time = time.time()
     with Pool() as p:
         p.map(batch_create_graph_from_file_and_analyze_parall, as_list)
@@ -569,9 +572,9 @@ def run_all_parall(stats_dir, min_size):
     logging.info("Total execution time: {}".format(execution_time))
 
 if __name__ == "__main__":
-    input_dir, output_dir, stats_dir, min_size, single_as, links_type, lcc_only, min_lcc_cov, approx, parall = parse()
+    input_dir, output_dir, stats_dir, min_size, single_as, links_type, lcc_only, min_lcc_cov, approx, parall, max_size = parse()
     if parall and not single_as:
-        run_all_parall(stats_dir, min_size)
+        run_all_parall(stats_dir, min_size, max_size)
     else:
         run_all(input_dir, output_dir, stats_dir, min_size,
-                single_as, links_type, lcc_only, min_lcc_cov, approx)
+                single_as, links_type, lcc_only, min_lcc_cov, approx, max_size)

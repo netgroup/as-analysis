@@ -28,9 +28,9 @@ def parse():
     parser.add_argument("-s", metavar="stats_dir",
                         default="stats", help="input dir to read statistics")
     parser.add_argument("--size", metavar="as_size", default="1000",
-                        help="maximum size of ASes to be considered")
-    parser.add_argument("--max-size", metavar="max_size", default="10000000",
                         help="minimum size of ASes to be considered")
+    parser.add_argument("--max-size", metavar="max_size", default="10000000",
+                        help="maximum size of ASes to be considered")
     parser.add_argument("--singleas", metavar="single_as",
                         help="AS number of single as to be considered")
     parser.add_argument("--rankdir", metavar="nodes_rank_dir",
