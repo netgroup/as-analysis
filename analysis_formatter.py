@@ -2,12 +2,13 @@ import os
 import pandas as pd
 import json
 
-ANALYSIS_DIR = "analysis_2020_08"
+ANALYSIS_DIR = "analysis_2020_08_lcc"
 COLUMNS = "c_names.json"
 OUT_FILE = "analysis.tsv"
 
-with open(COLUMNS) as json_file:
-  column_names = json.load(json_file)
+# with open(COLUMNS) as json_file:
+#   column_names = json.load(json_file)
+column_names = ["as_number", "ds_nodes", "largest_cc_size", "largest_cc_coverage"]
 files_list = os.listdir(ANALYSIS_DIR)
 for elem in files_list:
     if elem[0] == '.' or elem[0] == 'a':
